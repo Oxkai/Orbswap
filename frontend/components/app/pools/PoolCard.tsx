@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { Copy, Check, ArrowSquareOut } from "@phosphor-icons/react";
-import { TokenDAI, TokenUSDT, TokenUSDC, TokenFRAX } from "@token-icons/react";
+import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { fmtUSD, type Pool } from "@/lib/mock/data";
 
 const TOKEN_ICON_MAP: Record<string, React.ElementType> = {
-  DAI: TokenDAI, USDT: TokenUSDT, USDC: TokenUSDC, FRAX: TokenFRAX,
+  USDC: TokenUSDC,
 };
 
 function TokenIcon({ symbol, size = 22, fallback = "#555" }: { symbol: string; size?: number; fallback?: string }) {

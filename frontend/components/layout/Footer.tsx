@@ -32,7 +32,7 @@ const TOOLS = [
 
 const LINKS = [
   { letter: "A", label: "Orbswap paper", href: "/orbswap-paper.pdf" },
-  { letter: "B", label: "Stellar Explorer", href: "https://stellar.expert/explorer/testnet/contract/CBMYB2V3U4IMQBNRGSSE2B7646YG756KJONZPAKAAJYFQ7L6OJGDNDLW" },
+  { letter: "B", label: "Stellar Explorer", href: "https://stellar.expert/explorer/testnet/contract/CDGR7RRE72JKAW5UATPKCANAPVX3YVLPDEKSPNPVZ5BKLI43VAUC2RWK" },
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

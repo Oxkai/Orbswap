@@ -2,17 +2,17 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowSquareOut, ArrowsLeftRight, Plus, Minus, Tray } from "@phosphor-icons/react";
-import { TokenDAI, TokenUSDT, TokenUSDC, TokenFRAX } from "@token-icons/react";
+import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { useTransactions, type TxType } from "@/lib/hooks/useTransactions";
 import { TOKENS } from "@/lib/stellar/config";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TOKEN_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  DAI: TokenDAI, USDT: TokenUSDT, USDC: TokenUSDC, FRAX: TokenFRAX,
+  USDC: TokenUSDC,
 };
 const TOKEN_COLOR_MAP: Record<string, string> = {
-  CRVUSD: "#FF6B35",
+  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
 };
 
 function TokenIcon({ symbol, size = 16 }: { symbol: string; size?: number }) {

@@ -4,13 +4,14 @@
 import { rpc, Contract, Account, TransactionBuilder, BASE_FEE, scValToNative } from "@stellar/stellar-sdk";
 import { STELLAR, fromNative } from "./config";
 
-/** The deployed 2-token Circular tick pool. */
+/** The deployed 2-token Circular tick pool. USDC is shared with the SuperElliptical
+ *  pool (config.ts), which connects the two pools for multi-hop routing. */
 export const TICK_POOL = {
-  id: "CCAZ3IADGGP4K5NRWMM5RCA63J76SHDITSY6HJLCUEXGAKUFAMEWC2NL",
+  id: "CATAWBZMD337WXYZ3R5CX7KNFCBDLI7TAMDU6XSSPRDBLMZXWIGQ37HC",
   fee_bps: 30,
   tokens: [
-    { symbol: "CIRA", address: "CAL5IWELZEBZ3V7JT5W3CS2RABEWHBSJCJ6QBSZYGSZ33SJ3OTS3EXRV", color: "#4F9DFF" },
-    { symbol: "CIRB", address: "CCPYE62VMOIQIOMANUHLD5YWZCPJ5P7G6XDPSAIRP4QZNJE5AUDIC5NG", color: "#35C08E" },
+    { symbol: "USDC", address: "CBNDCO3DMKFVCSVFPHMYK6KSD6CCKVUMI3TFK6ZJ3BP7NCNLUJBJAB6Z", color: "#2775CA" },
+    { symbol: "NGNC", address: "CCUC4GORGIR4MPKFORGHT37HJRCDERYHN3J34DQ4E5XK37JIL3H5EKYL", color: "#10B981" },
   ],
 };
 
@@ -31,7 +32,7 @@ async function read(method: string): Promise<unknown> {
 export interface TickState {
   currentTick: number; // 0..90 (45 = balanced $1)
   activeLiquidity: number; // display scale
-  reserves: number[]; // [CIRA, CIRB], display
+  reserves: number[]; // [USDC, NGNC], display
 }
 
 /** Live tick state: current tick (angle), active liquidity, reserves. */

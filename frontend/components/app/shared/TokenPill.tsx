@@ -1,15 +1,12 @@
-import { TokenDAI, TokenUSDT, TokenUSDC, TokenFRAX } from "@token-icons/react";
+import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import type { Token } from "@/lib/mock/data";
 
 const TOKEN_ICON_MAP: Record<string, React.ElementType> = {
-  DAI:  TokenDAI,
-  USDT: TokenUSDT,
   USDC: TokenUSDC,
-  FRAX: TokenFRAX,
 };
 const TOKEN_COLOR_MAP: Record<string, string> = {
-  CRVUSD: "#FF6B35",
+  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
 };
 
 function TokenIcon({ symbol, color: tokenColor, size }: { symbol: string; color?: string; size: number }) {

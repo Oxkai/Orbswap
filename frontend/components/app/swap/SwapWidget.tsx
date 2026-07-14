@@ -12,7 +12,7 @@ import {
   Circle,
   ArrowSquareOut,
 } from "@phosphor-icons/react";
-import { TokenDAI, TokenUSDT, TokenUSDC, TokenFRAX } from "@token-icons/react";
+import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { useStellarWallet } from "@/lib/stellar/wallet";
 import { balanceOf } from "@/lib/stellar/pool";
@@ -20,26 +20,25 @@ import { findRoute, quoteRoute, swapRoute } from "@/lib/stellar/route";
 import { TOKENS, STELLAR, toNative, fromNative } from "@/lib/stellar/config";
 import { TICK_POOL } from "@/lib/stellar/ticks";
 
-// Every tradable token across all live pools, tagged with the pool it trades in.
-// A pair is only valid within one pool (the two pools share no token), so the
-// widget keeps both sides in the same pool.
+// Every tradable token across all live pools. The pair's route is resolved from the
+// pool graph (see lib/stellar/route.ts) — same-pool pairs are one hop, and pairs that
+// share only USDC route multi-hop through it.
 type SwapToken = { symbol: string; address: string; color: string; decimals: number; pool: string };
-const ALL_TOKENS: SwapToken[] = [
+// Union of both pools' tokens, deduped by address — USDC is shared, so it appears once.
+const ALL_TOKENS: SwapToken[] = [];
+for (const t of [
   ...TOKENS.map((t) => ({ symbol: t.symbol, address: t.address, color: t.color, decimals: t.decimals, pool: STELLAR.pool })),
   ...TICK_POOL.tokens.map((t) => ({ symbol: t.symbol, address: t.address, color: t.color, decimals: 7, pool: TICK_POOL.id })),
-];
+]) {
+  if (!ALL_TOKENS.some((x) => x.address === t.address)) ALL_TOKENS.push(t);
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TOKEN_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  DAI:  TokenDAI,
-  USDT: TokenUSDT,
   USDC: TokenUSDC,
-  FRAX: TokenFRAX,
 };
 const TOKEN_COLOR_MAP: Record<string, string> = {
-  CRVUSD: "#FF6B35",
-  USDA: "#4F9DFF", USDB: "#35C08E", USDD: "#B26BFF",
-  CIRA: "#4F9DFF", CIRB: "#35C08E",
+  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
 };
 
 function TokenIcon({ symbol, size = 28 }: { symbol: string; size?: number }) {
@@ -363,10 +362,11 @@ function SettingsPanel({ slippage, setSlippage, deadline, setDeadline, onClose }
 
 // ─── Info panel ───────────────────────────────────────────────────────────────
 
-function SwapInfoPanel({ tokenIn, tokenOut, tokens, numIn, amountOut, slippage, fee }: {
+function SwapInfoPanel({ tokenIn, tokenOut, tokens, numIn, amountOut, slippage, fee, routeLabel }: {
   tokenIn: number; tokenOut: number;
   tokens: { symbol: string }[];
   numIn: number; amountOut: number; slippage: number; fee: number;
+  routeLabel: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [rateFlipped, setRateFlipped] = useState(false);
@@ -410,7 +410,7 @@ function SwapInfoPanel({ tokenIn, tokenOut, tokens, numIn, amountOut, slippage, 
             { label: "Fee",          value: hasValues ? `${feeAmt.toFixed(4)} ${inSym}` : "—", note: hasValues ? `${(fee / 10000).toFixed(2)}%` : undefined },
             { label: "Slippage",     value: `${slippage}%` },
             { label: "Min received", value: hasValues ? `${minOut.toFixed(4)} ${outSym}` : "—" },
-            { label: "Route",        value: "Direct" },
+            { label: "Route",        value: routeLabel },
           ].map(r => (
             <div key={r.label} className="flex items-center justify-between">
               <span style={body("p3", color.textMuted)}>{r.label}</span>
@@ -458,6 +458,13 @@ export function SwapWidget() {
     () => (tokens[tokenIn] && tokens[tokenOut] ? findRoute(tokens[tokenIn].address, tokens[tokenOut].address) : null),
     [tokenIn, tokenOut, tokens],
   );
+  // Human-readable route: "Direct" for one hop, the token path (e.g. EURC → USDC → NGNC) for multi-hop.
+  const routeLabel = useMemo(() => {
+    if (!route) return "—";
+    if (route.length === 1) return "Direct";
+    const sym = (a: string) => tokens.find((t) => t.address === a)?.symbol ?? a.slice(0, 4);
+    return [route[0].tokenIn, ...route.map((h) => h.tokenOut)].map(sym).join(" → ");
+  }, [route, tokens]);
 
   const refreshBalances = useCallback(async () => {
     if (!address) { setBalances(ALL_TOKENS.map(() => 0)); return; }
@@ -657,6 +664,7 @@ export function SwapWidget() {
               <SwapInfoPanel
                 tokenIn={tokenIn} tokenOut={tokenOut} tokens={tokens}
                 numIn={numIn} amountOut={amountOut} slippage={slippage} fee={fee}
+                routeLabel={routeLabel}
               />
             </div>
           )}

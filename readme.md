@@ -11,28 +11,20 @@ Live on Stellar testnet · pure-Rust Soroban contracts + a Next.js app · 215 te
 
 ## The paper
 
-Orbswap is a direct implementation of
+Orbswap implements
 **[*Concentrated N-dimensional AMM with Polar Coordinates in Rust*](frontend/public/orbswap-paper.pdf)**
-by Vasily Tolstikov, Marcus Wentz, and Joseph Schiarizzi (September 2025). The paper extends
-n-dimensional stablecoin AMMs with concentrated-liquidity **ticks written in polar coordinates**,
-the ability to **skew** that liquidity with a superellipse, a warning about the **risk of stacking
-many stablecoins** in one pool, and **multimodal** liquidity distributions — all meant to be
-built in Rust/WASM.
+(Tolstikov, Wentz, Schiarizzi — Sept 2025), porting its six goals to a pure-Rust Soroban stack
+(`#![no_std]`, no-float, WAD fixed-point, fuzzed) with fees held **outside** the curve so the
+invariant stays exact to the integer:
 
-It lays out six goals; Orbswap ports each into a pure-Rust Soroban stack:
-
-| # | The paper's goal | Where it lives in Orbswap |
+| # | The paper's goal | In Orbswap |
 |---|---|---|
-| 1 | Explain the **Orbswap invariant** | [`ccmm`](contracts/orbswap-math/src/ccmm.rs) (circle) + [`csemm`](contracts/orbswap-math/src/csemm.rs) (superellipse) |
-| 2 | The **swap function in polar coordinates** | [`polar`](contracts/orbswap-math/src/polar.rs) |
-| 3 | **Concentrate ticks** in polar coordinates | [`ticks`](contracts/orbswap-math/src/ticks.rs) + the live Circular pool |
-| 4 | Fix Orbital's symmetric-tick limit by **skewing with an ellipse** | [`skew`](contracts/orbswap-math/src/skew.rs) |
-| 5 | The **risk of n-dimensional stablecoin pools**, and a mitigation | depeg isolation (allow-flags / auto-eject) |
-| 6 | **Multimodal liquidity distributions** | [`ndim`](contracts/orbswap-math/src/ndim.rs) / [`fingerprint`](contracts/orbswap-math/src/fingerprint.rs) |
-
-The paper targets Arbitrum Stylus; Orbswap keeps the same math but ships it as **Soroban
-contracts on Stellar**, with fees held **outside** the curve so the invariant stays exact to the
-integer. The math library is pure `#![no_std]`, no-float, WAD fixed-point, and fuzzed.
+| 1 | The **Orbswap invariant** | [`ccmm`](contracts/orbswap-math/src/ccmm.rs) (circle) + [`csemm`](contracts/orbswap-math/src/csemm.rs) (superellipse) |
+| 2 | **Swap in polar coordinates** | [`polar`](contracts/orbswap-math/src/polar.rs) |
+| 3 | **Concentrated ticks** in polar coords | [`ticks`](contracts/orbswap-math/src/ticks.rs) + the live Circular pool |
+| 4 | **Skew** the ticks with an ellipse | [`skew`](contracts/orbswap-math/src/skew.rs) |
+| 5 | **Depeg risk** of n-token pools, mitigated | isolation via allow-flags |
+| 6 | **Multimodal** liquidity | [`ndim`](contracts/orbswap-math/src/ndim.rs) / [`fingerprint`](contracts/orbswap-math/src/fingerprint.rs) |
 
 ---
 
@@ -103,8 +95,9 @@ shows both live pools, and adds liquidity with a flow that **adapts to the pool 
 balanced multi-token deposit for the SuperElliptical pool, a concentrated angle-range add for the
 Circular one — plus positions and recent on-chain events.
 
-Two pool families run live on testnet: a **SuperElliptical** 4-coin pool seeded to 24M, and a
-**Circular** 2-coin tick pool with real concentrated positions.
+Two pool families run live on testnet: a **SuperElliptical** basket (USDC/EURC/USDM/BRLT) seeded
+to 24M, and a **Circular** tick pool (USDC/NGNC) with real concentrated positions. USDC bridges
+them, so a EURC → NGNC swap routes multi-hop through it.
 
 ---
 
@@ -246,12 +239,13 @@ Network passphrase: `Test SDF Network ; September 2015`. Full records in
 
 | Contract | Address |
 |---|---|
-| SuperElliptical pool (4-coin, 24M) | [`CBMYB2V3…NDLW`](https://stellar.expert/explorer/testnet/contract/CBMYB2V3U4IMQBNRGSSE2B7646YG756KJONZPAKAAJYFQ7L6OJGDNDLW) |
-| Circular tick pool (2-coin) | [`CCAZ3IAD…C2NL`](https://stellar.expert/explorer/testnet/contract/CCAZ3IADGGP4K5NRWMM5RCA63J76SHDITSY6HJLCUEXGAKUFAMEWC2NL) |
-| Factory | [`CC7J3JNS…DGEN`](https://stellar.expert/explorer/testnet/contract/CC7J3JNSBILDA264Y3YKFQUQ6KAEIICPTENS2FN3O7BLYSFDCKVYDGEN) |
-| Router | [`CAV7RWVF…ZUVW`](https://stellar.expert/explorer/testnet/contract/CAV7RWVFGHLKH64R7IGKP5HCQ57SM5WTX2CDNTWBXW5C2S4346YIZUVW) |
+| SuperElliptical pool — USDC/EURC/USDM/BRLT, 24M | [`CDGR7RRE…2RWK`](https://stellar.expert/explorer/testnet/contract/CDGR7RRE72JKAW5UATPKCANAPVX3YVLPDEKSPNPVZ5BKLI43VAUC2RWK) |
+| Circular tick pool — USDC/NGNC, 5M | [`CATAWBZM…37HC`](https://stellar.expert/explorer/testnet/contract/CATAWBZMD337WXYZ3R5CX7KNFCBDLI7TAMDU6XSSPRDBLMZXWIGQ37HC) |
+| Factory | [`CCKK33NW…5TJW`](https://stellar.expert/explorer/testnet/contract/CCKK33NWDQPSONMRAWH2FNF2ZRZ4VR3PLUP73FUHZGOEMUH665WD5TJW) |
+| Router | [`CCARGBIG…AVLJ`](https://stellar.expert/explorer/testnet/contract/CCARGBIGZFOUIOSVM4Q5RNDOIJISYOFSL2VHVYPYWIZP67IV6FHGAVLJ) |
 
-The full token list and LP accounts are in [`contracts/README.md`](contracts/README.md).
+USDC is shared across both pools, so EURC / USDM / BRLT ↔ NGNC route multi-hop through it.
+The full token list is in [`contracts/README.md`](contracts/README.md).
 
 ---
 
