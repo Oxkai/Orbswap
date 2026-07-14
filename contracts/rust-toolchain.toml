@@ -1,0 +1,6 @@
+[toolchain]
+# 1.91+ required by soroban-sdk 27 (Phase 2 contracts). The math lib is
+# forward-compatible (was developed on 1.90).
+channel = "1.91.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32v1-none"]

@@ -1,0 +1,2 @@
+# Deployment address records are written here by scripts/deploy_*.sh
+# (testnet.json, testnet_full.json). Committed so addresses are shareable.

@@ -1,0 +1,13 @@
+[package]
+name = "orbswap-math"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Pure-Rust Orbswap AMM math (CCMM / CSEMM invariants, polar swap, ticks). no_std, deterministic fixed-point."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Intentionally empty: no_std, no soroban_sdk, no floats in the library itself.
+# Integration tests (tests/) run on the host and may use std/f64 as reference oracles.

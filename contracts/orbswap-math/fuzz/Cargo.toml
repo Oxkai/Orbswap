@@ -1,0 +1,55 @@
+[package]
+name = "orbswap-math-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.orbswap-math]
+path = ".."
+
+# Detach from the parent workspace: cargo-fuzz builds this crate on its own.
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fixed_point"
+path = "fuzz_targets/fixed_point.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "swap_invariant"
+path = "fuzz_targets/swap_invariant.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "roundtrip"
+path = "fuzz_targets/roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tick_crossing"
+path = "fuzz_targets/tick_crossing.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "csemm_ccmm_equiv"
+path = "fuzz_targets/csemm_ccmm_equiv.rs"
+test = false
+doc = false
+bench = false

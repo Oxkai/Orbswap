@@ -1,0 +1,57 @@
+# Taskfile (https://taskfile.dev) — common Orbswap dev commands.
+version: "3"
+
+tasks:
+  test:
+    desc: Run all workspace tests (math lib + contracts)
+    cmds:
+      - cargo test
+
+  test-math:
+    desc: Run the math library tests
+    cmds:
+      - cargo test -p orbswap-math
+
+  lint:
+    desc: fmt check + clippy (warnings as errors)
+    cmds:
+      - cargo fmt --all -- --check
+      - cargo clippy --all-targets -- -D warnings
+
+  fmt:
+    desc: Format all crates
+    cmds:
+      - cargo fmt --all
+
+  wasm:
+    desc: Build the pool contract to wasm
+    cmds:
+      - cargo build --target wasm32v1-none --release -p orbswap-pool
+
+  optimize:
+    desc: Build + optimize the pool wasm
+    deps: [wasm]
+    cmds:
+      - stellar contract optimize --wasm target/wasm32v1-none/release/orbswap_pool.wasm
+
+  fuzz:
+    desc: "Run a fuzz target (usage: task fuzz -- <target>)"
+    cmds:
+      - cd libs/orbswap-math && cargo +nightly fuzz run {{.CLI_ARGS}} -- -max_total_time=30
+
+  deploy-testnet:
+    desc: Deploy pool + test tokens to testnet and run a smoke swap
+    cmds:
+      - bash scripts/deploy_testnet.sh
+
+  deploy-all:
+    desc: Deploy the full system (pool wasm → factory → router → pool → swap)
+    cmds:
+      - bash scripts/deploy_all.sh
+
+  gate:
+    desc: Full pre-commit gate (test + lint + wasm)
+    cmds:
+      - task: test
+      - task: lint
+      - task: wasm

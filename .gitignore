@@ -1,0 +1,24 @@
+# Local-only working material (todo, notes, the paper, the EVM reference) — not pushed.
+/others/
+
+# Rust build output (any `target/` at any depth: contracts/target, fuzz target, …)
+target/
+**/*.rs.bk
+Cargo.lock.orig
+.DS_Store
+
+# cargo-fuzz generated outputs
+**/fuzz/corpus/
+**/fuzz/artifacts/
+**/fuzz/Cargo.lock
+
+# soroban test snapshots (auto-written by the test env)
+**/test_snapshots/
+
+# local deployment secrets / config — NEVER commit (.env.example is the template)
+.env
+.env.*
+!.env.example
+
+# optimized wasm artifacts (rebuilt by the deploy scripts)
+**/*.optimized.wasm

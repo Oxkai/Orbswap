@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "orbswap-math",
+    "orbswap-pool-interface",
+    "orbswap-pool",
+    "orbswap-factory",
+    "orbswap-router",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+lto = true
+codegen-units = 1
+panic = "abort"
