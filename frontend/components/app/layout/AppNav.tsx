@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAccount, useConnect, useConnectors, useDisconnect, useChainId, useSwitchChain } from "wagmi";
-import { unichainSepolia } from "@/lib/wagmi";
+import { useStellarWallet } from "@/lib/stellar/wallet";
 import { color, typography } from "@/constants";
 import { List as Menu, X, MagnifyingGlass } from "@phosphor-icons/react";
 
@@ -19,22 +18,18 @@ function short(addr: string) {
   return addr.slice(0, 6) + "…" + addr.slice(-4);
 }
 
-// Deterministic wallet avatar — a 2-stop gradient seeded by the address.
+// Deterministic wallet avatar — a 2-stop gradient seeded by the address (any format).
 function avatarGradient(addr: string) {
-  const a = addr.toLowerCase().replace("0x", "").padEnd(12, "0");
-  const h1 = parseInt(a.slice(0, 6), 16) % 360;
-  const h2 = parseInt(a.slice(6, 12), 16) % 360;
+  let h = 0;
+  for (let i = 0; i < addr.length; i++) h = (h * 31 + addr.charCodeAt(i)) >>> 0;
+  const h1 = h % 360;
+  const h2 = (h >> 8) % 360;
   return `linear-gradient(135deg, hsl(${h1} 70% 56%), hsl(${h2} 72% 46%))`;
 }
 
 export function AppNav() {
   const pathname = usePathname();
-  const { address, isConnected } = useAccount();
-  const { connect, isPending }   = useConnect();
-  const connectors               = useConnectors();
-  const { disconnect }           = useDisconnect();
-  const chainId                  = useChainId();
-  const { switchChain }          = useSwitchChain();
+  const { address, isConnected, connecting, connect, disconnect } = useStellarWallet();
   const [isMounted, setIsMounted] = useState(false);
   const [menuOpen, setMenuOpen]   = useState(false);
 
@@ -44,7 +39,6 @@ export function AppNav() {
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   const showConnectedWallet = isMounted && isConnected && address;
-  const wrongChain = isMounted && isConnected && chainId !== unichainSepolia.id;
 
   return (
     <>
@@ -54,10 +48,10 @@ export function AppNav() {
           backgroundColor: "color-mix(in srgb, var(--color-bg) 82%, transparent)",
         }}
       >
-        <Link href="/" aria-label="Orbital home" className="flex items-center shrink-0">
+        <Link href="/" aria-label="Orbswap home" className="flex items-center shrink-0">
           <span
             role="img"
-            aria-label="Orbital"
+            aria-label="Orbswap"
             style={{
               display: "inline-block",
               width: 26,
@@ -137,23 +131,6 @@ export function AppNav() {
             </span>
           </label>
 
-          {wrongChain && (
-            <button
-              onClick={() => switchChain({ chainId: unichainSepolia.id })}
-              className="hidden sm:flex items-center h-9 px-3 hover:opacity-90 transition-opacity"
-              style={{
-                color: color.error,
-                backgroundColor: `${color.error}1f`,
-                fontFamily: typography.caption.family,
-                fontSize: "11px",
-                fontWeight: 500,
-                letterSpacing: "0.02em",
-                cursor: "pointer",
-              }}
-            >
-              Wrong network — switch
-            </button>
-          )}
           {showConnectedWallet ? (
             <button
               onClick={() => disconnect()}
@@ -176,25 +153,21 @@ export function AppNav() {
             </button>
           ) : (
             <button
-              onClick={() => {
-                const connector =
-                  connectors.find(c => c.type === "injected") ?? connectors[0];
-                if (connector) connect({ connector });
-              }}
-              disabled={isPending}
+              onClick={() => connect()}
+              disabled={connecting}
               className="flex items-center h-9 px-4"
               style={{
                 backgroundColor: color.textPrimary,
                 color: color.bg,
-                opacity: isPending ? 0.6 : 1,
+                opacity: connecting ? 0.6 : 1,
                 fontFamily: typography.p2.family,
                 fontSize: typography.p2.size,
                 letterSpacing: "-0.01em",
-                cursor: isPending ? "not-allowed" : "pointer",
+                cursor: connecting ? "not-allowed" : "pointer",
                 whiteSpace: "nowrap",
               }}
             >
-              {isPending ? "Connecting…" : "Connect"}
+              {connecting ? "Connecting…" : "Connect Wallet"}
             </button>
           )}
 
@@ -215,20 +188,6 @@ export function AppNav() {
           className="sm:hidden fixed top-14 left-0 right-0 z-50 px-4 md:px-12 py-4"
           style={{ backgroundColor: color.bg }}
         >
-          {wrongChain && (
-            <button
-              onClick={() => { switchChain({ chainId: unichainSepolia.id }); setMenuOpen(false); }}
-              className="w-full text-left py-3"
-              style={{
-                color: color.error,
-                fontFamily: typography.p2.family,
-                fontSize: typography.p2.size,
-                cursor: "pointer",
-              }}
-            >
-              ⚠ Wrong network — tap to switch
-            </button>
-          )}
           {LINKS.map(({ href, label }) => {
             const active =
               pathname === href ||

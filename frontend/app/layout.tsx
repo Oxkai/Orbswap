@@ -5,7 +5,6 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import LayoutGrid from "@/components/layout/LayoutGrid";
 import { getThemeCssVariables } from "@/constants";
-import { Web3ProviderShell } from "@/components/providers/Web3ProviderShell";
 import { cn } from "@/lib/utils";
 
 // KMR Apparat: the site's display + body sans, loaded locally from /public/TTF.
@@ -49,9 +48,7 @@ export default function RootLayout({
       <body
         className="min-h-full flex flex-col"
       >
-        <Web3ProviderShell>
-          {children}
-        </Web3ProviderShell>
+        {children}
         {process.env.NODE_ENV === "development" && <LayoutGrid />}
       </body>
     </html>

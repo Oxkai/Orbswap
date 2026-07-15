@@ -15,6 +15,8 @@ export interface StellarWallet {
   connecting: boolean;
   error: string | null;
   connect: () => Promise<void>;
+  /** Forget the address locally (Freighter stays authorized until re-detected). */
+  disconnect: () => void;
   /** Sign a transaction XDR with Freighter; returns the signed XDR. */
   sign: (xdr: string) => Promise<string>;
 }
@@ -70,12 +72,15 @@ export function useStellarWallet(): StellarWallet {
     [address]
   );
 
+  const disconnect = useCallback(() => setAddress(null), []);
+
   return {
     address,
     isConnected: !!address,
     connecting,
     error,
     connect,
+    disconnect,
     sign,
   };
 }
