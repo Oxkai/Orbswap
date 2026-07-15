@@ -10,7 +10,7 @@ contract ([`orbswap-pool`](orbswap-pool/src)) links it in and adds custody, fees
 accounting on top. For the project overview and the app, see the [root README](../readme.md).
 
 > **Status: testnet-ready.** math → pool → factory → router complete — **215 tests, clippy-clean,
-> fuzzed, all 3 contracts build & optimize to wasm** (pool 57 KB · factory 12 KB · router 13 KB).
+> fuzzed, all 3 contracts build & optimize to wasm** (pool 89 KB · factory 12 KB · router 12 KB).
 > Deployable today as a fixed, non-upgradeable pool; see [Status](#status) for the gap to mainnet.
 
 ---
@@ -54,7 +54,7 @@ into the pool — no cross-contract calls, all deterministic integer math.
 | [`orbswap-factory`](orbswap-factory/src) | `create_pool` (deploys + initializes), `sha256(PoolKey)` registry, canonical token ordering, dedup. |
 | [`orbswap-router`](orbswap-router/src) | Stateless multi-hop `swap_exact_in`/`swap_exact_out`, `quote_path`, add/remove-liquidity passthroughs. No custody. |
 
-**Optimized wasm:** pool 57 KB · factory 12 KB · router 13 KB (well under Soroban limits).
+**Optimized wasm:** pool 89 KB · factory 12 KB · router 12 KB (well under Soroban limits).
 
 ---
 

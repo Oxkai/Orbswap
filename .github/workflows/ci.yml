@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # rust-toolchain.toml pins the channel (1.90.0) and components.
+      # rust-toolchain.toml pins the channel and components.
       - name: Install toolchain from rust-toolchain.toml
         run: |
           rustup show active-toolchain || rustup toolchain install
@@ -32,8 +32,23 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin
             contracts/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+
+      # The factory/router test crates `contractimport!` the OPTIMIZED pool wasm (the
+      # raw build exceeds Soroban's 128 KB code limit), so it must exist before clippy
+      # or test even compile those crates. stellar-cli provides `contract optimize`.
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+      - name: Install stellar-cli
+        run: cargo binstall -y stellar-cli
+        env:
+          RUSTFLAGS: ""
+      - name: Build + optimize pool wasm
+        run: |
+          cargo build --target wasm32v1-none --release -p orbswap-pool
+          stellar contract optimize --wasm target/wasm32v1-none/release/orbswap_pool.wasm
 
       - name: Format check
         run: cargo fmt --all -- --check

@@ -114,7 +114,7 @@ Stellar/Soroban isn't incidental — it's the natural home for this paper:
   no approve/permit dance, no unlock/settle callback.
 - **SEP-41 tokens, per-pool self-custody.** Each pool is its own contract holding its own
   reserves; there is no shared singleton to trust.
-- **Tiny footprint.** Optimized wasm: pool 57 KB, factory 12 KB, router 13 KB — well under
+- **Tiny footprint.** Optimized wasm: pool 89 KB, factory 12 KB, router 12 KB — well under
   Soroban's limits.
 
 ---

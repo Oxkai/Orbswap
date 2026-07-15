@@ -17,14 +17,14 @@ export function Masthead() {
     <>
       {/* I. Giant title */}
       <section
-        className="mx-6"
+        className="mx-6 overflow-hidden"
       >
         <SectionLabel  chapter="I" section="00" path="Orbswap" />
         <div className="relative pt-16 pb-10 md:pt-24 md:pb-16">
           <div className="grid grid-cols-12 gap-5">
             <h1
               aria-label="I. Orbswap"
-              className="flex w-full items-center justify-between gap-6 col-span-12"
+              className="flex w-full min-w-0 items-center justify-between gap-3 md:gap-6 col-span-12"
               style={{
                 fontFamily: typography.h1.family,
                 fontWeight: 400,
@@ -38,8 +38,8 @@ export function Masthead() {
                 style={{
                   display: "inline-block",
                   flexShrink: 0,
-                  width: "clamp(48px, 9vw, 120px)",
-                  height: "clamp(48px, 9vw, 120px)",
+                  width: "clamp(40px, 9vw, 120px)",
+                  height: "clamp(40px, 9vw, 120px)",
                   backgroundColor: color.textPrimary,
                   WebkitMaskImage: "url(/logo.svg)",
                   maskImage: "url(/logo.svg)",
@@ -52,9 +52,9 @@ export function Masthead() {
                 }}
               />
               <span
-                className="text-right mr-2"
+                className="text-right whitespace-nowrap"
                 style={{
-                  fontSize: "clamp(72px, 13vw, 200px)",
+                  fontSize: "clamp(44px, 12.5vw, 200px)",
                   color: color.textPrimary,
                   fontWeight: 500,
                   letterSpacing: "-0.055em",
