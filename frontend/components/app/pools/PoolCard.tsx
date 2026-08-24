@@ -3,38 +3,12 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { Copy, Check, ArrowSquareOut } from "@phosphor-icons/react";
-import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { fmtUSD, type Pool } from "@/lib/mock/data";
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
+import { NetworkStellar } from "@web3icons/react";
 
-const TOKEN_ICON_MAP: Record<string, React.ElementType> = {
-  USDC: TokenUSDC,
-};
 
-function TokenIcon({ symbol, size = 22, fallback = "#555" }: { symbol: string; size?: number; fallback?: string }) {
-  const Icon = TOKEN_ICON_MAP[symbol.toUpperCase()];
-  if (Icon) return <Icon size={size} variant="branded" />;
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        backgroundColor: fallback,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        fontSize: Math.max(6, size * 0.36),
-        color: "#fff",
-        fontFamily: typography.caption.family,
-        fontWeight: 700,
-      }}
-    >
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
-}
 
 const LBL = {
   fontFamily: typography.caption.family,
@@ -108,7 +82,7 @@ export function PoolCard({ pool }: PoolCardProps) {
                   zIndex: pool.tokens.length - i,
                 }}
               >
-                <TokenIcon symbol={t.symbol} size={24} fallback={t.color} />
+                <TokenIcon symbol={t.symbol} size={24} color={t.color} />
               </span>
             ))}
           </div>
@@ -174,7 +148,6 @@ export function PoolCard({ pool }: PoolCardProps) {
                   style={{
                     width: 6,
                     height: 6,
-                    borderRadius: "50%",
                     backgroundColor: t.color,
                     display: "inline-block",
                     opacity: depegged ? 0.5 : 1,
@@ -209,7 +182,7 @@ export function PoolCard({ pool }: PoolCardProps) {
             <ArrowSquareOut size={12} weight="regular" />
           </a>
           <span className="flex items-center gap-1.5 shrink-0 pl-1" style={body("caption", color.textMuted)}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: color.success, display: "inline-block" }} />
+            <NetworkStellar size={11} variant="mono" color={color.textMuted} />
             Stellar Testnet
           </span>
         </div>

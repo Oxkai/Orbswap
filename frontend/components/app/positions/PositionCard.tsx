@@ -108,7 +108,7 @@ export function PositionCard({ position }: PositionCardProps) {
             {pool.tokens.map((t, i) => (
               feesOwed[i] > 0 && (
                 <div key={t.address} className="flex items-center gap-1.5">
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: t.color, display: "inline-block" }} />
+                  <span style={{ width: 6, height: 6, backgroundColor: t.color, display: "inline-block" }} />
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: color.success }}>
                     {feesOwed[i].toFixed(4)} {t.symbol}
                   </span>

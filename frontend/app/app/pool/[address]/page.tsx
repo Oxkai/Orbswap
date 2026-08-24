@@ -15,25 +15,8 @@ import {
   Pulse,
   Circle,
 } from "@phosphor-icons/react";
-import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 
-const TOKEN_ICON_MAP: Record<string, React.ElementType> = {
-  USDC: TokenUSDC,
-};
-const TOKEN_COLOR_MAP: Record<string, string> = {
-  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
-};
-function TokenIcon({ symbol, size = 16 }: { symbol: string; size?: number }) {
-  const Icon = TOKEN_ICON_MAP[symbol.toUpperCase()];
-  if (Icon) return <Icon size={size} variant="branded" />;
-  const bg = TOKEN_COLOR_MAP[symbol.toUpperCase()] ?? "#555";
-  return (
-    <span style={{ width: size, height: size, borderRadius: "50%", backgroundColor: bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: Math.max(6, size * 0.38), color: "#fff", fontFamily: "var(--font-mono)", fontWeight: 700, letterSpacing: "-0.02em" }}>
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
-}
 
 import { usePool }   from "@/lib/hooks/usePool";
 import { useTickPool } from "@/lib/hooks/useTickPool";
@@ -42,6 +25,7 @@ import { TICK_POOL } from "@/lib/stellar/ticks";
 import { useTransactions, type TxType } from "@/lib/hooks/useTransactions";
 import { DepthChart } from "@/components/app/pool/DepthChart";
 import { fmtUSD }   from "@/lib/mock/data";
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
 
 const TABS = ["Overview", "Ticks", "Transactions"] as const;
 type Tab = typeof TABS[number];

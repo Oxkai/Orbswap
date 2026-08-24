@@ -35,7 +35,7 @@ const REFS = [
 export function References() {
   return (
     <section className="mx-6 my-1">
-      <SectionLabel border chapter="VIII" section="07" path="ORBSWAP / REFERENCES" />
+      <SectionLabel border chapter="IX" section="08" path="ORBSWAP / REFERENCES" />
 
       <div className="pt-10 pb-14">
         <div className="mb-10">

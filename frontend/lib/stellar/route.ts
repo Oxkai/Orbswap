@@ -4,7 +4,7 @@
 // it serves any pair among its tokens directly via `pool.swap(token_in, token_out)`
 // (Curve/Balancer-style). A 2-token pool (Circular tick) is a single edge. To go
 // A → B we BFS this graph for the shortest pool path; a direct pair is one hop, and
-// disjoint tokens (e.g. USDA ↔ CIRA) simply have no route.
+// disjoint tokens (i.e. a pair sharing no pool) simply have no route.
 //
 // Single-hop routes execute straight on the pool. Multi-hop routes chain 2-token
 // pools through `orbswap-router` (its `other_token` is 2-token only, which is why

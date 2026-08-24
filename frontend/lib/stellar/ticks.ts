@@ -11,7 +11,9 @@ export const TICK_POOL = {
   fee_bps: 30,
   tokens: [
     { symbol: "USDC", address: "CBNDCO3DMKFVCSVFPHMYK6KSD6CCKVUMI3TFK6ZJ3BP7NCNLUJBJAB6Z", color: "#2775CA" },
-    { symbol: "NGNC", address: "CCUC4GORGIR4MPKFORGHT37HJRCDERYHN3J34DQ4E5XK37JIL3H5EKYL", color: "#10B981" },
+    // IDRT (Indonesian rupiah, kbtrading.org) is a live Stellar asset and gives the
+    // oracle pair a real local-currency leg — the corridor shape rates.rs targets.
+    { symbol: "IDRT", address: "CCUC4GORGIR4MPKFORGHT37HJRCDERYHN3J34DQ4E5XK37JIL3H5EKYL", color: "#BB4E42" },
   ],
 };
 
@@ -32,7 +34,7 @@ async function read(method: string): Promise<unknown> {
 export interface TickState {
   currentTick: number; // 0..90 (45 = balanced $1)
   activeLiquidity: number; // display scale
-  reserves: number[]; // [USDC, NGNC], display
+  reserves: number[]; // [USDC, IDRT], display
 }
 
 /** Live tick state: current tick (angle), active liquidity, reserves. */

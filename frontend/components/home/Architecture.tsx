@@ -64,7 +64,7 @@ const MATH_MODULES = ["ccmm", "csemm", "ndim", "polar", "ticks", "skew", "fees",
 export function Architecture() {
   return (
     <section className="mx-6 my-1">
-      <SectionLabel border chapter="IV" section="03" path="ORBSWAP / ARCHITECTURE" />
+      <SectionLabel border chapter="V" section="04" path="ORBSWAP / ARCHITECTURE" />
 
       <div className="pb-12 pt-20">
         <Emphasized

@@ -1,4 +1,5 @@
 import { color } from "@/constants";
+import { STELLAR } from "@/lib/stellar/config";
 
 export function AppFooter() {
   return (
@@ -13,7 +14,7 @@ export function AppFooter() {
           color: color.textMuted,
         }}
       >
-        UNICHAIN SEPOLIA · CHAIN ID 1301
+        {`STELLAR ${STELLAR.network} · SOROBAN`}
       </span>
       <span
         style={{
@@ -23,7 +24,7 @@ export function AppFooter() {
           color: color.textMuted,
         }}
       >
-        © 2026 ORBITAL
+        © 2026 ORBSWAP
       </span>
     </footer>
   );

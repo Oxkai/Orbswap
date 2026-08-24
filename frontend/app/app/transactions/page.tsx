@@ -2,44 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowSquareOut, ArrowsLeftRight, Plus, Minus, Tray } from "@phosphor-icons/react";
-import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { useTransactions, type TxType } from "@/lib/hooks/useTransactions";
 import { TOKENS } from "@/lib/stellar/config";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const TOKEN_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  USDC: TokenUSDC,
-};
-const TOKEN_COLOR_MAP: Record<string, string> = {
-  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
-};
-
-function TokenIcon({ symbol, size = 16 }: { symbol: string; size?: number }) {
-  const Icon = TOKEN_ICON_MAP[symbol.toUpperCase()];
-  if (Icon) return <Icon size={size} variant="branded" />;
-  const bg = TOKEN_COLOR_MAP[symbol.toUpperCase()] ?? "#555";
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        backgroundColor: bg,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        fontSize: Math.max(5, size * 0.38),
-        color: "#fff",
-        fontFamily: typography.caption.family,
-        fontWeight: 700,
-      }}
-    >
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
-}
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
 
 const EXPLORER = "https://stellar.expert/explorer/testnet";
 

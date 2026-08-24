@@ -130,7 +130,7 @@ function Row({ c, index }: { c: Contract; index: string }) {
 export function Deployed() {
   return (
     <section className="mx-6 my-1">
-      <SectionLabel border chapter="VII" section="06" path="ORBSWAP / ON-CHAIN" />
+      <SectionLabel border chapter="VIII" section="07" path="ORBSWAP / ON-CHAIN" />
 
       <div className="pt-10 pb-14">
         <div className="mb-10">

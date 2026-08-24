@@ -12,13 +12,14 @@ import {
   Circle,
   ArrowSquareOut,
 } from "@phosphor-icons/react";
-import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
 import { useStellarWallet } from "@/lib/stellar/wallet";
 import { balanceOf } from "@/lib/stellar/pool";
 import { findRoute, quoteRoute, swapRoute } from "@/lib/stellar/route";
 import { TOKENS, STELLAR, toNative, fromNative } from "@/lib/stellar/config";
 import { TICK_POOL } from "@/lib/stellar/ticks";
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
+import { NetworkStellar } from "@web3icons/react";
 
 // Every tradable token across all live pools. The pair's route is resolved from the
 // pool graph (see lib/stellar/route.ts) — same-pool pairs are one hop, and pairs that
@@ -31,41 +32,6 @@ for (const t of [
   ...TICK_POOL.tokens.map((t) => ({ symbol: t.symbol, address: t.address, color: t.color, decimals: 7, pool: TICK_POOL.id })),
 ]) {
   if (!ALL_TOKENS.some((x) => x.address === t.address)) ALL_TOKENS.push(t);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const TOKEN_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  USDC: TokenUSDC,
-};
-const TOKEN_COLOR_MAP: Record<string, string> = {
-  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
-};
-
-function TokenIcon({ symbol, size = 28 }: { symbol: string; size?: number }) {
-  const Icon = TOKEN_ICON_MAP[symbol.toUpperCase()];
-  if (Icon) return <Icon size={size} variant="branded" />;
-  const fallbackBg = TOKEN_COLOR_MAP[symbol.toUpperCase()] ?? "#555";
-  const inner = Math.round(size * 0.6);
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        backgroundColor: fallbackBg,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        fontSize: Math.max(6, inner * 0.42),
-        color: "#fff",
-        fontFamily: typography.caption.family,
-        fontWeight: 700,
-      }}
-    >
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
 }
 
 const LBL = {
@@ -428,7 +394,6 @@ function SwapInfoPanel({ tokenIn, tokenOut, tokens, numIn, amountOut, slippage, 
 
 // ─── Main widget ──────────────────────────────────────────────────────────────
 
-
 export function SwapWidget() {
   const [tokenIn,      setTokenIn]      = useState(0);
   const [tokenOut,     setTokenOut]     = useState(1);
@@ -458,7 +423,7 @@ export function SwapWidget() {
     () => (tokens[tokenIn] && tokens[tokenOut] ? findRoute(tokens[tokenIn].address, tokens[tokenOut].address) : null),
     [tokenIn, tokenOut, tokens],
   );
-  // Human-readable route: "Direct" for one hop, the token path (e.g. EURC → USDC → NGNC) for multi-hop.
+  // Human-readable route: "Direct" for one hop, the token path (e.g. EURC → USDC → IDRT) for multi-hop.
   const routeLabel = useMemo(() => {
     if (!route) return "—";
     if (route.length === 1) return "Direct";
@@ -578,7 +543,7 @@ export function SwapWidget() {
             className="flex items-center gap-1.5 px-2.5 h-7"
             style={{ backgroundColor: color.surface2 }}
           >
-            <Circle size={7} color={color.success} weight="fill" />
+            <NetworkStellar size={13} variant="mono" color={color.textSecondary} />
             <span
               style={{
                 fontFamily: typography.caption.family,

@@ -6,6 +6,7 @@ import { useStellarWallet } from "@/lib/stellar/wallet";
 import { usePositions } from "@/lib/hooks/usePositions";
 import { usePool } from "@/lib/hooks/usePool";
 import { TOKENS } from "@/lib/stellar/config";
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
 
 const LBL = {
   fontFamily: typography.caption.family,
@@ -27,20 +28,6 @@ function body(size: "p1" | "p2" | "p3" | "caption" = "p2", c: string = color.tex
   };
 }
 
-function TokenIcon({ symbol, color: c, size = 24 }: { symbol: string; color: string; size?: number }) {
-  return (
-    <span
-      style={{
-        width: size, height: size, borderRadius: "50%", backgroundColor: c,
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0, fontSize: Math.max(7, size * 0.36), color: "#fff",
-        fontFamily: typography.caption.family, fontWeight: 700,
-      }}
-    >
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
-}
 
 function StatItem({ icon, label, value, accent }: {
   icon: React.ReactNode; label: string; value: string; accent?: string;

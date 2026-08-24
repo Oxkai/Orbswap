@@ -1,6 +1,6 @@
 // Stellar/Soroban network + Orbswap deployment config for the swap widget.
 // Mirrors contracts/deployments/testnet_demo.json. USDC is SHARED with the tick
-// pool (see ticks.ts), so EURC/USDM/BRLT ↔ NGNC route multi-hop through it.
+// pool (see ticks.ts), so EURC/PYUSD/XCHF ↔ IDRT route multi-hop through it.
 
 export const STELLAR = {
   network: "TESTNET" as const,
@@ -8,7 +8,7 @@ export const STELLAR = {
   rpcUrl: "https://soroban-testnet.stellar.org",
   // Any existing account works as the source for read-only `quote` simulations.
   readAccount: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O",
-  // SuperElliptical pool: USDC / EURC / USDM / BRLT, 24M TVL.
+  // SuperElliptical pool: USDC / EURC / PYUSD / XCHF, 24M TVL.
   pool: "CDGR7RRE72JKAW5UATPKCANAPVX3YVLPDEKSPNPVZ5BKLI43VAUC2RWK",
   // Periphery: factory deploys/registers pools, router does multi-hop swaps.
   factory: "CCKK33NWDQPSONMRAWH2FNF2ZRZ4VR3PLUP73FUHZGOEMUH665WD5TJW",
@@ -24,11 +24,22 @@ export interface StellarToken {
 }
 
 // The four SAC test tokens in the SuperElliptical pool. All 7-decimal Stellar assets.
+//
+// Symbols are drawn from assets that genuinely trade on Stellar mainnet, verified
+// against stellar.expert's asset index — USDC (Circle, 2.3M trustlines), EURC
+// (Circle), PYUSD (Paxos/PayPal) and XCHF (kbtrading.org). The SACs themselves are
+// ones we minted for the demo, so their on-chain metadata still carries the original
+// placeholder codes; nothing reads `symbol()` from the contract, so a block explorer
+// will show the minted code rather than the ticker rendered here.
+//
+// `color` drives the reserve-distribution bars. Three of Stellar's four largest
+// stablecoins are blue, so USDC/EURC/PYUSD are separated along a blue ramp using
+// each issuer's own brand family rather than invented hues.
 export const TOKENS: StellarToken[] = [
-  { symbol: "USDC", address: "CBNDCO3DMKFVCSVFPHMYK6KSD6CCKVUMI3TFK6ZJ3BP7NCNLUJBJAB6Z", decimals: 7, color: "#2775CA" },
-  { symbol: "EURC", address: "CAXVONHQX5SHHTEG2AQYSE4YO6CSSRIOGA3MTCTDL3ZS5K2HVWFGEHID", decimals: 7, color: "#14B8A6" },
-  { symbol: "USDM", address: "CB6MC6LXWCOGEDPOTJIQHTE6VZF46RWVGWJJE6D52SS4P2FTJSBEJBMN", decimals: 7, color: "#8B5CF6" },
-  { symbol: "BRLT", address: "CAD3IHN2D7LYAVAIUMTS5KAWCT6ACXPTV2LAQNVO6Q77WDP3XLY2BGG7", decimals: 7, color: "#F59E0B" },
+  { symbol: "USDC",  address: "CBNDCO3DMKFVCSVFPHMYK6KSD6CCKVUMI3TFK6ZJ3BP7NCNLUJBJAB6Z", decimals: 7, color: "#2775CA" },
+  { symbol: "EURC",  address: "CAXVONHQX5SHHTEG2AQYSE4YO6CSSRIOGA3MTCTDL3ZS5K2HVWFGEHID", decimals: 7, color: "#7FC4FF" },
+  { symbol: "PYUSD", address: "CB6MC6LXWCOGEDPOTJIQHTE6VZF46RWVGWJJE6D52SS4P2FTJSBEJBMN", decimals: 7, color: "#009CDE" },
+  { symbol: "XCHF",  address: "CAD3IHN2D7LYAVAIUMTS5KAWCT6ACXPTV2LAQNVO6Q77WDP3XLY2BGG7", decimals: 7, color: "#CE0E2D" },
 ];
 
 // 7-decimal fixed point ⇄ display float.

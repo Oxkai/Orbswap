@@ -49,7 +49,7 @@ const PILLARS: Pillar[] = [
 export function Pillars() {
   return (
     <section className="mx-6">
-      <SectionLabel border chapter="V" section="04" path="ORBSWAP / PRINCIPLES" />
+      <SectionLabel border chapter="VI" section="05" path="ORBSWAP / PRINCIPLES" />
 
       <div className="grid grid-cols-12 gap-5 pt-20 pb-12">
         <h2

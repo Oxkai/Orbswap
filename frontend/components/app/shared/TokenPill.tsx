@@ -1,24 +1,6 @@
-import { TokenUSDC } from "@token-icons/react";
 import { color, typography } from "@/constants";
+import { TokenIcon } from "@/components/app/shared/TokenIcon";
 import type { Token } from "@/lib/mock/data";
-
-const TOKEN_ICON_MAP: Record<string, React.ElementType> = {
-  USDC: TokenUSDC,
-};
-const TOKEN_COLOR_MAP: Record<string, string> = {
-  USDC: "#2775CA", EURC: "#14B8A6", USDM: "#8B5CF6", BRLT: "#F59E0B", NGNC: "#10B981",
-};
-
-function TokenIcon({ symbol, color: tokenColor, size }: { symbol: string; color?: string; size: number }) {
-  const Icon = TOKEN_ICON_MAP[symbol.toUpperCase()];
-  if (Icon) return <Icon size={size} variant="branded" />;
-  const bg = tokenColor ?? TOKEN_COLOR_MAP[symbol.toUpperCase()] ?? "#555";
-  return (
-    <span style={{ width: size, height: size, borderRadius: "50%", backgroundColor: bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: Math.max(5, size * 0.38), color: "#fff", fontFamily: "var(--font-mono)", fontWeight: 700 }}>
-      {symbol.slice(0, 2).toUpperCase()}
-    </span>
-  );
-}
 
 interface TokenPillProps {
   token: Token;

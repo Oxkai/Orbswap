@@ -5,7 +5,7 @@ import { Tex } from "@/components/Tex";
 
 const MONO = "var(--font-mono)";
 
-type Curve = {
+type Problem = {
   n: string;
   kind: string;
   title: string;
@@ -17,48 +17,59 @@ type Curve = {
   accent: string;
 };
 
-const CURVES: Curve[] = [
+const PROBLEMS: Problem[] = [
   {
     n: "01",
-    kind: "CCMM",
-    title: "Circular",
-    tag: "2 tokens · polar ticks",
-    tex: "(x-k)^{2} + (y-k)^{2} = k^{2}",
-    lede: "Two coins ride a circular arc.",
-    body: "Concentration comes from polar ticks: each LP places liquidity between two angles, like Uniswap v3 but in angle space, so capital packs tight around the 1:1 point. When price leaves the arc, that position stops trading and stops taking risk.",
+    kind: "LIQUIDITY",
+    title: "Fragmented",
+    tag: "4 coins → 6 pools",
+    tex: "\\tfrac{N(N-1)}{2}\\ \\text{markets}",
+    lede: "One basket, divided across six order books.",
+    body: "Pools are built two tokens at a time, so a four-coin basket needs six of them. The same deposits are split across every combination, each pool ends up shallower than the last, and adding a fifth coin means standing up four more markets.",
     points: [
-      "Balanced at 45 degrees, priced by the slope",
-      "Per-position liquidity and fee growth",
-      "A depeg is walled off at the tick edge",
+      "A USDC/EURC trade cannot touch USDC/USDM depth",
+      "Per-pool depth falls as the basket grows",
+      "Every new stablecoin needs its own set of markets",
     ],
-    accent: colors.green.hex,
+    accent: colors.yellow.hex,
   },
   {
     n: "02",
-    kind: "CSEMM",
-    title: "SuperElliptical",
-    tag: "2 to 8 tokens · shape concentration",
-    tex: "\\textstyle\\sum_i \\lvert x_i - k\\rvert^{u} = k^{u}",
-    lede: "A whole basket shares one superellipse.",
-    body: "Here concentration is baked into the curve itself. The exponent u decides how boxy it is, from a gentle constant-sum line up to an LMSR-like wall. No ticks to manage, and every pair in the basket trades from the same reserves.",
+    kind: "DENSITY",
+    title: "Flat",
+    tag: "breadth or depth, never both",
+    tex: "x \\cdot y = k",
+    lede: "Depth spread across prices a dollar never reaches.",
+    body: "Curve holds many stablecoins together, but lays liquidity flatly along the whole curve — most of it parked at prices that never trade. Uniswap v3 concentrates properly, then caps you at two tokens. Today you pick breadth or depth, never both.",
     points: [
-      "N assets in one pool, up to eight",
-      "Concentration is a single shape parameter",
-      "Isolates a single depegged asset on its own",
+      "Curve — the whole basket, thin at the peg",
+      "Uniswap v3 — dense at the peg, one pair only",
+      "Idle capital earns nothing and cushions nothing",
     ],
-    accent: colors.purple.hex,
+    accent: colors.yellow.hex,
+  },
+  {
+    n: "03",
+    kind: "TAIL RISK",
+    title: "Depegged",
+    tag: "USDC → $0.88 · Mar 2023",
+    tex: "p_i \\to 0 \\;\\Rightarrow\\; \\vec{x} \\to x_i",
+    lede: "One broken coin becomes the entire pool.",
+    body: "A flat pool keeps quoting the failing asset near a dollar long after the market has stopped. Arbitrage sells it in and takes the healthy coins out, until LPs hold little else. This is the tail impermanent loss that wrecks flat stable pools.",
+    points: [
+      "The pool prices the depeg last, not first",
+      "LPs absorb the fall with no bound of their own",
+      "USDC after SVB — flat pools took the loss",
+    ],
+    accent: colors.red.hex,
   },
 ];
 
-function CurveCard({ c }: { c: Curve }) {
+function ProblemCard({ p }: { p: Problem }) {
   return (
-    <article
-      className="flex flex-col"
-      style={{ backgroundColor: color.surface1 }}
-    >
-      {/* header */}
+    <article className="flex flex-col" style={{ backgroundColor: color.surface1 }}>
       <div
-        className="flex items-center justify-between px-6 py-4 border-b border-dashed"
+        className="flex items-center justify-between gap-3 px-6 py-4 border-b border-dashed"
         style={{ borderColor: color.borderSubtle }}
       >
         <span
@@ -70,18 +81,19 @@ function CurveCard({ c }: { c: Curve }) {
             textTransform: "uppercase",
           }}
         >
-          {`// ${c.n} / ${c.kind}`}
+          {`// ${p.n} / ${p.kind}`}
         </span>
         <span
+          className="text-right"
           style={{
             fontFamily: MONO,
             fontSize: "10px",
             letterSpacing: "0.08em",
-            color: c.accent,
+            color: p.accent,
             textTransform: "uppercase",
           }}
         >
-          {c.tag}
+          {p.tag}
         </span>
       </div>
 
@@ -96,15 +108,14 @@ function CurveCard({ c }: { c: Curve }) {
             fontWeight: 400,
           }}
         >
-          {c.title}
+          {p.title}
         </h3>
 
-        {/* Formula */}
         <div
           className="px-4 border border-dashed flex items-center justify-center [&_.katex-display]:my-0"
-          style={{ borderColor: color.borderSubtle, color: color.accent, fontSize: "19px", height: 60 }}
+          style={{ borderColor: color.borderSubtle, color: p.accent, fontSize: "19px", height: 60 }}
         >
-          <Tex block>{c.tex}</Tex>
+          <Tex block>{p.tex}</Tex>
         </div>
 
         <p
@@ -116,7 +127,7 @@ function CurveCard({ c }: { c: Curve }) {
             color: color.textPrimary,
           }}
         >
-          {c.lede}
+          {p.lede}
         </p>
 
         <p
@@ -129,14 +140,13 @@ function CurveCard({ c }: { c: Curve }) {
             color: color.textMuted,
           }}
         >
-          {c.body}
+          {p.body}
         </p>
 
-        {/* Points */}
         <ul className="flex flex-col mt-1">
-          {c.points.map((p, i) => (
+          {p.points.map((pt, i) => (
             <li
-              key={p}
+              key={pt}
               className="grid grid-cols-[20px_1fr] items-baseline gap-3 py-3 border-t border-dashed"
               style={{ borderColor: color.borderSubtle }}
             >
@@ -145,7 +155,7 @@ function CurveCard({ c }: { c: Curve }) {
                   fontFamily: MONO,
                   fontSize: "11px",
                   letterSpacing: "0.04em",
-                  color: c.accent,
+                  color: p.accent,
                 }}
               >
                 {String.fromCharCode(65 + i)}
@@ -159,7 +169,7 @@ function CurveCard({ c }: { c: Curve }) {
                   color: color.textSecondary,
                 }}
               >
-                {p}
+                {pt}
               </span>
             </li>
           ))}
@@ -169,10 +179,10 @@ function CurveCard({ c }: { c: Curve }) {
   );
 }
 
-export function Curves() {
+export function Problems() {
   return (
     <section className="mx-6 my-1">
-      <SectionLabel border chapter="III" section="02" path="ORBSWAP / CURVES" />
+      <SectionLabel border chapter="II" section="01" path="ORBSWAP / PROBLEM" />
 
       <div className="pb-12 pt-20">
         <Emphasized
@@ -181,32 +191,28 @@ export function Curves() {
           letterSpacing="-0.04em"
           fontFamily={typography.h1.family}
           segments={[
-            { t: "Two curves", v: "on" },
-            { t: ", one idea", v: "off" },
+            { t: "Stablecoins all target the same dollar", v: "on" },
+            { t: ", but ", v: "off" },
+            { t: "AMMs make you choose", v: "on" },
             { t: ".", v: "green" },
             " ",
-            { t: "A ", v: "off" },
-            { t: "circle", v: "on" },
-            { t: " concentrates two coins with ", v: "off" },
-            { t: "polar ticks", v: "on" },
+            { t: "Hold the ", v: "off" },
+            { t: "whole basket", v: "on" },
+            { t: " and depth goes thin. Get ", v: "off" },
+            { t: "real depth", v: "on" },
+            { t: " and you are back to two tokens", v: "off" },
             { t: ".", v: "green" },
             " ",
-            { t: "A ", v: "off" },
-            { t: "superellipse", v: "on" },
-            { t: " concentrates a whole basket by its ", v: "off" },
-            { t: "shape", v: "on" },
-            { t: ".", v: "green" },
-            " ",
-            { t: "Both keep liquidity dense at the peg", v: "on" },
-            { t: ", where stablecoins actually trade", v: "off" },
+            { t: "Either way, ", v: "off" },
+            { t: "one broken coin drains the rest", v: "on" },
             { t: ".", v: "green" },
           ]}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-1 md:grid-cols-2 mb-24 items-stretch">
-        {CURVES.map((c) => (
-          <CurveCard key={c.n} c={c} />
+      <div className="grid grid-cols-1 gap-1 md:grid-cols-3 mb-24 items-stretch">
+        {PROBLEMS.map((p) => (
+          <ProblemCard key={p.n} p={p} />
         ))}
       </div>
     </section>

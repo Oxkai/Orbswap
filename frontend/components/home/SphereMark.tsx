@@ -138,7 +138,7 @@ export function SphereMark() {
           opacity={0.8}
         />
 
-        {["USDC", "USDT", "DAI", "FRAX"].map((tk, i) => {
+        {["USDC", "EURC", "PYUSD", "XCHF"].map((tk, i) => {
           const a = (i * Math.PI * 2) / 4 - Math.PI / 2;
           const x = cx + Math.cos(a) * (r + 24);
           const y = cy + Math.sin(a) * (r + 24);
