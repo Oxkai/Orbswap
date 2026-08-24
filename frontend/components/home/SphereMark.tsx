@@ -1,4 +1,5 @@
 import { color, colors } from "@/constants";
+import { TOKENS } from "@/lib/stellar/config";
 
 export function SphereMark() {
   const size = 420;
@@ -138,8 +139,11 @@ export function SphereMark() {
           opacity={0.8}
         />
 
-        {["USDC", "EURC", "PYUSD", "XCHF"].map((tk, i) => {
-          const a = (i * Math.PI * 2) / 4 - Math.PI / 2;
+        {/* The four legs of the SuperElliptical pool, read from the active network's
+            token table so the labels follow the network switch instead of drifting. */}
+        {TOKENS.map((t, i) => {
+          const tk = t.symbol;
+          const a = (i * Math.PI * 2) / TOKENS.length - Math.PI / 2;
           const x = cx + Math.cos(a) * (r + 24);
           const y = cy + Math.sin(a) * (r + 24);
           return (

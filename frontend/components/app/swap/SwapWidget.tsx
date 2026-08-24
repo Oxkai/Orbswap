@@ -16,16 +16,16 @@ import { color, typography } from "@/constants";
 import { useStellarWallet } from "@/lib/stellar/wallet";
 import { balanceOf } from "@/lib/stellar/pool";
 import { findRoute, quoteRoute, swapRoute } from "@/lib/stellar/route";
-import { TOKENS, STELLAR, toNative, fromNative } from "@/lib/stellar/config";
+import { TOKENS, STELLAR, toNative, fromNative, NETWORK_LABEL } from "@/lib/stellar/config";
 import { TICK_POOL } from "@/lib/stellar/ticks";
 import { TokenIcon } from "@/components/app/shared/TokenIcon";
 import { NetworkStellar } from "@web3icons/react";
 
 // Every tradable token across all live pools. The pair's route is resolved from the
 // pool graph (see lib/stellar/route.ts) — same-pool pairs are one hop, and pairs that
-// share only USDC route multi-hop through it.
+// meet only at the shared leg route multi-hop through it. USDC is that shared leg.
 type SwapToken = { symbol: string; address: string; color: string; decimals: number; pool: string };
-// Union of both pools' tokens, deduped by address — USDC is shared, so it appears once.
+// Union of both pools' tokens, deduped by address — the shared leg appears once.
 const ALL_TOKENS: SwapToken[] = [];
 for (const t of [
   ...TOKENS.map((t) => ({ symbol: t.symbol, address: t.address, color: t.color, decimals: t.decimals, pool: STELLAR.pool })),
@@ -423,7 +423,7 @@ export function SwapWidget() {
     () => (tokens[tokenIn] && tokens[tokenOut] ? findRoute(tokens[tokenIn].address, tokens[tokenOut].address) : null),
     [tokenIn, tokenOut, tokens],
   );
-  // Human-readable route: "Direct" for one hop, the token path (e.g. EURC → USDC → IDRT) for multi-hop.
+  // Human-readable route: "Direct" for one hop, the token path (e.g. PYUSD → USDC → FDUSD) for multi-hop.
   const routeLabel = useMemo(() => {
     if (!route) return "—";
     if (route.length === 1) return "Direct";
@@ -553,7 +553,7 @@ export function SwapWidget() {
                 whiteSpace: "nowrap",
               }}
             >
-              Stellar Testnet
+              {NETWORK_LABEL}
             </span>
           </div>
           <button

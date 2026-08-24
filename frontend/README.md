@@ -2,7 +2,7 @@
 
 The web app for **Orbswap**, a concentrated N-dimensional stableswap (CCMM circle /
 CSEMM superellipse) on **Stellar / Soroban**. Swap, provide liquidity, and inspect the
-live testnet pools — wired directly to the on-chain contracts with the
+live pools — wired directly to the on-chain contracts with the
 [`@stellar/stellar-sdk`](https://github.com/stellar/js-stellar-sdk) and signed in-browser
 with [Freighter](https://www.freighter.app/).
 
@@ -24,13 +24,26 @@ The contracts and their deployed addresses live in [`../contracts`](../contracts
 ```bash
 npm install
 npm run dev          # dev server on http://localhost:3000
+npm run dev:https    # same, over https — Freighter refuses non-SSL origins
 npm run build        # production build
 npm start            # serve the production build (recommended on low-RAM machines)
 ```
 
-No env vars are required — the network (testnet) and all contract addresses are
-committed in [`lib/stellar/config.ts`](lib/stellar/config.ts). To use the app you need the
-Freighter extension set to **Testnet**.
+No env vars are required. The app runs on **Stellar mainnet**, and the deployed
+addresses are committed in [`lib/stellar/config.ts`](lib/stellar/config.ts). Set the
+Freighter extension to **Mainnet** to use it.
+
+Freighter will not inject into a plain-HTTP origin, so wallet actions need
+`npm run dev:https` locally (the first run installs a local CA and prompts for your
+password). Deployed builds get HTTPS from the host and need nothing extra.
+
+The RPC endpoint, the read account and the contract addresses can each be
+overridden individually. See [`.env.example`](.env.example).
+
+> Token display metadata lives in [`lib/stellar/config.ts`](lib/stellar/config.ts)
+> and [`lib/stellar/ticks.ts`](lib/stellar/ticks.ts). The UI renders stablecoin
+> symbols and published marks through
+> [`TokenIcon.tsx`](components/app/shared/TokenIcon.tsx).
 
 ## How the on-chain wiring works
 

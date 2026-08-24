@@ -22,6 +22,7 @@ import { usePool }   from "@/lib/hooks/usePool";
 import { useTickPool } from "@/lib/hooks/useTickPool";
 import { usePoolActivity } from "@/lib/hooks/usePoolActivity";
 import { TICK_POOL } from "@/lib/stellar/ticks";
+import { EXPLORER, explorerContract } from "@/lib/stellar/config";
 import { useTransactions, type TxType } from "@/lib/hooks/useTransactions";
 import { DepthChart } from "@/components/app/pool/DepthChart";
 import { fmtUSD }   from "@/lib/mock/data";
@@ -188,7 +189,7 @@ function OverviewTab({ pool }: { pool: NonNullable<ReturnType<typeof usePool>["p
   // SuperElliptical pool concentrates by curve shape, so hide all tick UI for it.
   const hasTicks = pool.ticks.length > 0;
   const activeTicks = pool.ticks.length;
-  const explorer = `https://stellar.expert/explorer/testnet/contract/${pool.address}`;
+  const explorer = explorerContract(pool.address);
 
   return (
     <div className="flex flex-col gap-8">
@@ -475,7 +476,7 @@ function LiquidityTab({ pool }: { pool: NonNullable<ReturnType<typeof usePool>["
 
 // ─── Transactions tab ─────────────────────────────────────────────────────────
 
-const EXPLORER = "https://stellar.expert/explorer/testnet";
+
 
 const TYPE_COLOR: Record<TxType, string> = {
   Swap:    "#60A5FA",
@@ -727,7 +728,7 @@ export default function PoolDetailPage({ params }: { params: Promise<{ address: 
               {pool && (
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <a
-                    href={`https://stellar.expert/explorer/testnet/contract/${poolAddr}`}
+                    href={explorerContract(poolAddr)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 hover:opacity-100 opacity-80 transition-opacity"

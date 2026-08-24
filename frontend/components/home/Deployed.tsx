@@ -1,6 +1,6 @@
 import { color, colors, typography } from "@/constants";
 import { SectionLabel } from "./SectionLabel";
-import { STELLAR } from "@/lib/stellar/config";
+import { STELLAR, explorerContract, NETWORK_LABEL_UPPER } from "@/lib/stellar/config";
 import { TICK_POOL } from "@/lib/stellar/ticks";
 
 type Contract = { name: string; address: string };
@@ -53,7 +53,7 @@ function GroupHeader({ code, label, count }: { code: string; label: string; coun
 function Row({ c, index }: { c: Contract; index: string }) {
   return (
     <a
-      href={`https://stellar.expert/explorer/testnet/contract/${c.address}`}
+      href={explorerContract(c.address)}
       target="_blank"
       rel="noopener noreferrer"
       className="group grid grid-cols-12 items-center gap-5 px-5 py-4 border-b border-dashed transition-colors hover:bg-white/[0.03]"
@@ -157,7 +157,7 @@ export function Deployed() {
             color: color.textMuted,
           }}
         >
-          <span className="col-span-12 md:col-span-6">NETWORK / STELLAR TESTNET</span>
+          <span className="col-span-12 md:col-span-6">NETWORK / {NETWORK_LABEL_UPPER}</span>
           <span className="col-span-12 md:col-span-6 md:justify-self-end">RUNTIME / SOROBAN</span>
         </div>
 

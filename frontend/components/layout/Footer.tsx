@@ -1,4 +1,5 @@
 import { color, typography } from "@/constants";
+import { STELLAR, explorerContract, NETWORK_LABEL, NETWORK_LABEL_UPPER } from "@/lib/stellar/config";
 
 const TEAM = [
   { name: "Ajay Odedra", role: "ENGINEER", img: "/profile.JPG" },
@@ -32,7 +33,7 @@ const TOOLS = [
 
 const LINKS = [
   { letter: "A", label: "Orbswap paper", href: "/orbswap-paper.pdf" },
-  { letter: "B", label: "Stellar Explorer", href: "https://stellar.expert/explorer/testnet/contract/CDGR7RRE72JKAW5UATPKCANAPVX3YVLPDEKSPNPVZ5BKLI43VAUC2RWK" },
+  { letter: "B", label: "Stellar Explorer", href: explorerContract(STELLAR.pool) },
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -183,7 +184,7 @@ export function Footer() {
           >
             Research implementation of the Orbswap paper (polar CCMM and CSEMM curves).
             <br />
-            Deployed on Stellar testnet, not production.
+            Deployed on {NETWORK_LABEL} with self-issued test assets, not production.
           </p>
           <p
             style={{
@@ -296,7 +297,7 @@ export function Footer() {
         }}
       >
         <span>
-          STELLAR TESTNET · SOROBAN · NOT AUDITED · NOT FINANCIAL ADVICE
+          {NETWORK_LABEL_UPPER} · SOROBAN · NOT AUDITED · NOT FINANCIAL ADVICE
         </span>
         <span>© 2026 ORBSWAP</span>
       </div>

@@ -224,7 +224,9 @@ export async function deposit(opts: {
 export async function routerSwapExactIn(opts: {
   from: string;
   pools: string[];
-  tokenIn: string;
+  /** Token path through `pools`, so `tokens.length === pools.length + 1`. The
+   *  router needs it spelled out: an n-token pool has no single "other" token. */
+  tokens: string[];
   amountIn: bigint;
   minOut: bigint;
   deadline: bigint;
@@ -233,6 +235,7 @@ export async function routerSwapExactIn(opts: {
   const s = server();
   const source = await s.getAccount(opts.from);
   const poolsVec = xdr.ScVal.scvVec(opts.pools.map(addrScVal));
+  const tokensVec = xdr.ScVal.scvVec(opts.tokens.map(addrScVal));
   const built = new TransactionBuilder(source, {
     fee: BASE_FEE,
     networkPassphrase: STELLAR.networkPassphrase,
@@ -242,7 +245,7 @@ export async function routerSwapExactIn(opts: {
         "swap_exact_in",
         addrScVal(opts.from),
         poolsVec,
-        addrScVal(opts.tokenIn),
+        tokensVec,
         i128(opts.amountIn),
         i128(opts.minOut),
         u64(opts.deadline)
@@ -354,6 +357,8 @@ export async function swap(opts: {
 }
 
 export interface PoolEvent {
+  /** Unique per event — a transaction can emit more than one. */
+  id: string;
   type: "Swap" | "Deposit" | "Withdraw" | "Other";
   from?: string;
   pool?: string;
@@ -364,11 +369,19 @@ export interface PoolEvent {
   data: any;
 }
 
+/** On-chain event topic → the type we surface. Keys are the snake_case names the
+ *  `#[contractevent]` macro derives from `Swap` / `Deposit` / `Withdraw`. */
+const EVENT_TYPES: Record<string, PoolEvent["type"]> = {
+  swap: "Swap",
+  deposit: "Deposit",
+  withdraw: "Withdraw",
+};
+
 /**
  * Recent contract events (newest first) across one or more pools. The Soroban RPC
  * scans at most ~10k ledgers per `getEvents` call, so we page in sub-cap chunks up
  * to the latest ledger (a single large `startLedger` would scan an old chunk and
- * miss recent activity). Testnet retention bounds how far back this can reach.
+ * miss recent activity). RPC event retention bounds how far back this can reach.
  */
 export async function getRecentEvents(
   pools: string[] = [STELLAR.pool],
@@ -393,17 +406,22 @@ export async function getRecentEvents(
       } catch {
         continue; // out-of-retention or transient — skip this chunk
       }
-      for (const ev of res.events) {
-        const key = ev.id ?? `${ev.txHash}:${ev.ledger}`;
+      for (const [i, ev] of res.events.entries()) {
+        // One transaction can emit several pool events — a multi-hop router swap
+        // emits one per pool — so tx hash alone does not identify an event. The
+        // RPC's `id` is unique; the fallback adds the pool and position to stay
+        // unique when it is absent.
+        const key = ev.id ?? `${ev.txHash}:${ev.ledger}:${pool}:${i}`;
         if (seen.has(key)) continue; // chunks overlap slightly; dedupe
         seen.add(key);
         const name = ev.topic?.[0] ? String(scValToNative(ev.topic[0])) : "Other";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const data: any = scValToNative(ev.value);
-        const type: PoolEvent["type"] =
-          name === "Swap" || name === "Deposit" || name === "Withdraw" ? name : "Other";
+        // `#[contractevent]` derives the topic from the struct name in snake_case,
+        // so `Swap` reaches us as "swap" and `Withdraw` as "withdraw".
+        const type: PoolEvent["type"] = EVENT_TYPES[name.toLowerCase()] ?? "Other";
         const ts = ev.ledgerClosedAt ? Math.floor(new Date(ev.ledgerClosedAt).getTime() / 1000) : 0;
-        out.push({ type, ledger: ev.ledger, ts, txHash: ev.txHash, data, from: data?.from, pool });
+        out.push({ id: key, type, ledger: ev.ledger, ts, txHash: ev.txHash, data, from: data?.from, pool });
       }
     }
   }

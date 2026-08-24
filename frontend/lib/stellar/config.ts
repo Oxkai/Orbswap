@@ -1,19 +1,40 @@
-// Stellar/Soroban network + Orbswap deployment config for the swap widget.
-// Mirrors contracts/deployments/testnet_demo.json. USDC is SHARED with the tick
-// pool (see ticks.ts), so EURC/PYUSD/XCHF ↔ IDRT route multi-hop through it.
+// Stellar/Soroban network + Orbswap deployment config.
+//
+// The app targets Stellar mainnet (the "Public Global" network). Addresses come from
+// contracts/deployments/mainnet_stable.json and are compiled in, so `npm run dev`
+// works with no env file; individual values can still be overridden. See
+// frontend/.env.example.
+
+export const EXPLORER = "https://stellar.expert/explorer/public";
+
+/** Human-readable network name for UI chrome, kept as an export so the label lives
+ *  in one place instead of being hardcoded in a dozen components. */
+export const NETWORK_LABEL = "Stellar Mainnet";
+export const NETWORK_LABEL_UPPER = NETWORK_LABEL.toUpperCase();
+export const explorerTx = (hash: string) => `${EXPLORER}/tx/${hash}`;
+export const explorerContract = (address: string) => `${EXPLORER}/contract/${address}`;
 
 export const STELLAR = {
-  network: "TESTNET" as const,
-  networkPassphrase: "Test SDF Network ; September 2015",
-  rpcUrl: "https://soroban-testnet.stellar.org",
+  network: "PUBLIC",
+  networkPassphrase: "Public Global Stellar Network ; September 2015",
+  // Public endpoints rate-limit — override before taking real traffic.
+  rpcUrl: process.env.NEXT_PUBLIC_STELLAR_RPC_URL ?? "https://mainnet.sorobanrpc.com",
   // Any existing account works as the source for read-only `quote` simulations.
-  readAccount: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O",
-  // SuperElliptical pool: USDC / EURC / PYUSD / XCHF, 24M TVL.
-  pool: "CDGR7RRE72JKAW5UATPKCANAPVX3YVLPDEKSPNPVZ5BKLI43VAUC2RWK",
+  readAccount:
+    process.env.NEXT_PUBLIC_STELLAR_READ_ACCOUNT ??
+    "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O",
+  // SuperElliptical pool: USDC / PYUSD / USDT / DAI, 24M TVL.
+  pool:
+    process.env.NEXT_PUBLIC_ORBSWAP_POOL ??
+    "CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM",
   // Periphery: factory deploys/registers pools, router does multi-hop swaps.
-  factory: "CCKK33NWDQPSONMRAWH2FNF2ZRZ4VR3PLUP73FUHZGOEMUH665WD5TJW",
-  router: "CCARGBIGZFOUIOSVM4Q5RNDOIJISYOFSL2VHVYPYWIZP67IV6FHGAVLJ",
-  explorerTx: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
+  factory:
+    process.env.NEXT_PUBLIC_ORBSWAP_FACTORY ??
+    "CDMMO6NHPPTFEEUGOXX77QQ3GJJ4HJLGNVLEHYQNFNYGILTYTVSFT3IP",
+  router:
+    process.env.NEXT_PUBLIC_ORBSWAP_ROUTER ??
+    "CA7GUCUQSWKAPGYELJRKJKCLZMNHMJDVBA3D3NMJCK2QB3IJAZOTC6E2",
+  explorerTx,
 };
 
 export interface StellarToken {
@@ -21,25 +42,22 @@ export interface StellarToken {
   address: string;
   decimals: number;
   color: string;
+  /** Issuer/product name shown under the ticker. */
+  name?: string;
 }
 
-// The four SAC test tokens in the SuperElliptical pool. All 7-decimal Stellar assets.
+// The four display legs of the SuperElliptical pool. All 7-decimal Stellar assets,
+// all pegged 1:1 to each other — the regime the curve is calibrated for.
 //
-// Symbols are drawn from assets that genuinely trade on Stellar mainnet, verified
-// against stellar.expert's asset index — USDC (Circle, 2.3M trustlines), EURC
-// (Circle), PYUSD (Paxos/PayPal) and XCHF (kbtrading.org). The SACs themselves are
-// ones we minted for the demo, so their on-chain metadata still carries the original
-// placeholder codes; nothing reads `symbol()` from the contract, so a block explorer
-// will show the minted code rather than the ticker rendered here.
+// Issuer: GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U
 //
-// `color` drives the reserve-distribution bars. Three of Stellar's four largest
-// stablecoins are blue, so USDC/EURC/PYUSD are separated along a blue ramp using
-// each issuer's own brand family rather than invented hues.
+// `color` gives each leg a distinct hue so the reserve-distribution bars stay
+// readable at bar-width.
 export const TOKENS: StellarToken[] = [
-  { symbol: "USDC",  address: "CBNDCO3DMKFVCSVFPHMYK6KSD6CCKVUMI3TFK6ZJ3BP7NCNLUJBJAB6Z", decimals: 7, color: "#2775CA" },
-  { symbol: "EURC",  address: "CAXVONHQX5SHHTEG2AQYSE4YO6CSSRIOGA3MTCTDL3ZS5K2HVWFGEHID", decimals: 7, color: "#7FC4FF" },
-  { symbol: "PYUSD", address: "CB6MC6LXWCOGEDPOTJIQHTE6VZF46RWVGWJJE6D52SS4P2FTJSBEJBMN", decimals: 7, color: "#009CDE" },
-  { symbol: "XCHF",  address: "CAD3IHN2D7LYAVAIUMTS5KAWCT6ACXPTV2LAQNVO6Q77WDP3XLY2BGG7", decimals: 7, color: "#CE0E2D" },
+  { symbol: "USDC",  name: "USD Coin",       address: "CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6", decimals: 7, color: "#2775CA" },
+  { symbol: "PYUSD", name: "PayPal USD",     address: "CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A", decimals: 7, color: "#009CDE" },
+  { symbol: "USDT",  name: "Tether USD",     address: "CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV", decimals: 7, color: "#26A17B" },
+  { symbol: "DAI",   name: "Dai Stablecoin", address: "CANCIHPUY6LBPH5JH4MFBBQTFOC64C5QNWAL77YZAIX7J7X2LHXSLFCZ", decimals: 7, color: "#F5AC37" },
 ];
 
 // 7-decimal fixed point ⇄ display float.

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowSquareOut, Check, Circle, Info } from "@phosphor-icons/react";
 import { color, typography } from "@/constants";
 import { useStellarWallet } from "@/lib/stellar/wallet";
-import { TOKENS, SCALE } from "@/lib/stellar/config";
+import { TOKENS, SCALE, explorerTx, NETWORK_LABEL } from "@/lib/stellar/config";
 import { TICK_POOL, getTickState } from "@/lib/stellar/ticks";
 import { getReservesOf, balanceOf, deposit, addLiquidity } from "@/lib/stellar/pool";
 
@@ -35,7 +35,7 @@ const toNative = (d: number): bigint => BigInt(Math.round(d * SCALE));
 const fromNative = (n: bigint): number => Number(n) / SCALE;
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 });
 const DEADLINE = () => BigInt(Math.floor(Date.now() / 1000) + 1200);
-const explorerTx = (h: string) => `https://stellar.expert/explorer/testnet/tx/${h}`;
+
 
 type Tok = { symbol: string; address: string; color: string; decimals: number };
 
@@ -362,7 +362,7 @@ function TickFlow({ poolAddr, tokens }: { poolAddr: string; tokens: Tok[] }) {
             {tokens.map((t, j) => (
               <ReviewRow key={t.address} label={`Deposit ${t.symbol}`}>{fmt(fromNative(amounts[j]))}</ReviewRow>
             ))}
-            <ReviewRow label="Network">Stellar Testnet</ReviewRow>
+            <ReviewRow label="Network">{NETWORK_LABEL}</ReviewRow>
           </div>
           {error && <span style={body("caption", color.error)} className="px-1">{error}</span>}
           <div className="flex gap-px">
@@ -462,7 +462,7 @@ function DepositFlow({ poolAddr, tokens }: { poolAddr: string; tokens: Tok[] }) 
               <ReviewRow key={t.address} label={`Deposit ${t.symbol}`}>{fmt(fromNative(amounts[j]))}</ReviewRow>
             ))}
             <ReviewRow label="Pool share">≈ {poolShare < 0.01 ? "<0.01" : poolShare.toFixed(2)}%</ReviewRow>
-            <ReviewRow label="Network">Stellar Testnet</ReviewRow>
+            <ReviewRow label="Network">{NETWORK_LABEL}</ReviewRow>
           </div>
           {error && <span style={body("caption", color.error)} className="px-1">{error}</span>}
           <div className="flex gap-px">

@@ -1,0 +1,283 @@
+
+[1;36m== 1/9  Identities  (network: mainnet)[0m
+   deployer: GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O  (must hold >= 45 XLM — verified in preflight)
+   issuer:   GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U
+
+[1;36m== 0/9  Preflight (mainnet)[0m
+   ✓ RPC healthy
+   XLM balance: 84.0774572   (need ~45)
+   ✓ XLM sufficient
+   ✓ issuer account exists
+   assets: USDA USDB USDD USDE USDF  (self-issued, minted in stage 4 — nothing to pre-fund)
+   seeding: pool A 6,000,000 x4, pool B 2,000,000 + 500,000
+
+[1;36m== 1b/9  Issuer account already exists[0m
+
+[1;36m== 2/9  Build + optimize wasm[0m
+    Finished `release` profile [optimized] target(s) in 0.29s
+⚠️  `stellar contract optimize` is deprecated and will be removed in future versions of the CLI. Use `stellar contract build --optimize` instead.
+Reading: target/wasm32v1-none/release/orbswap_pool.wasm (152635 bytes)
+Optimized: target/wasm32v1-none/release/orbswap_pool.optimized.wasm (91916 bytes)
+   orbswap_pool.optimized.wasm  91916 bytes
+⚠️  `stellar contract optimize` is deprecated and will be removed in future versions of the CLI. Use `stellar contract build --optimize` instead.
+Reading: target/wasm32v1-none/release/orbswap_factory.wasm (37343 bytes)
+Optimized: target/wasm32v1-none/release/orbswap_factory.optimized.wasm (12369 bytes)
+   orbswap_factory.optimized.wasm  12369 bytes
+⚠️  `stellar contract optimize` is deprecated and will be removed in future versions of the CLI. Use `stellar contract build --optimize` instead.
+Reading: target/wasm32v1-none/release/orbswap_router.wasm (23920 bytes)
+Optimized: target/wasm32v1-none/release/orbswap_router.optimized.wasm (10819 bytes)
+   orbswap_router.optimized.wasm  10819 bytes
+
+[1;36m== 3/9  Periphery: pool wasm -> factory -> router[0m
+   pool wasm hash: 136742a3c69c821387afbda308d4f3fd2873eee0c560bc4f5d65b25175bf1588
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: c807b8aa9aad76b79eb55b8d4e7dca1272dedce99bd5f248976fb2ac45ea989a
+🌎 Sending transaction…
+❌ error: transaction submission timeout
+   … retry 1/4 (stellar)
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: a4cefd0e76d60b67fedfc59a236b2c68f390360c4315b6777f62268f4ce5469f
+🌎 Sending transaction…
+❌ error: transaction submission failed: TxInsufficientFee
+   … retry 2/4 (stellar)
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: a4cefd0e76d60b67fedfc59a236b2c68f390360c4315b6777f62268f4ce5469f
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/a4cefd0e76d60b67fedfc59a236b2c68f390360c4315b6777f62268f4ce5469f
+null
+   factory: CDTYWMWZKQLKIRICBWHI2R54MS65NSF43BKN3UXHAA4OHEC6SHXTZECZ
+   router:  CDITGYXEQQB3I7PJRHHLQLDQ7TGE4GYXLJCUQZJTVUWNMBKPDRXVNXD5
+
+[1;36m== 4/9  Tokens: USDA USDB USDD USDE USDF  (issued by GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U)[0m
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(a7355906a592cfe621b88aff812acbdd0d630890660e650164f100856a76cb9f)]
+
+   … retry 1/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(a7355906a592cfe621b88aff812acbdd0d630890660e650164f100856a76cb9f)]
+
+   … retry 2/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(a7355906a592cfe621b88aff812acbdd0d630890660e650164f100856a76cb9f)]
+
+   ! stellar failed after 3 attempts
+ℹ️  Signing transaction: 50ec2211d2b0db8ec2e5fd9718c722d547c475b961fd4c4e63c31b5dba049144
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 9ab28aaa33cb55796d61f470406f95c5e3b3f2c5474a0d5e363c9451f28b953a
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/9ab28aaa33cb55796d61f470406f95c5e3b3f2c5474a0d5e363c9451f28b953a
+📅 CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6 - Success - Event: MintWithAmountOnly (mint), to: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", amount: "500000000000000"
+
+   USDA    CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(e316643cd588dbc4d9d10802b40e3956d42737d393737666b063bb13a306147b)]
+
+   … retry 1/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(e316643cd588dbc4d9d10802b40e3956d42737d393737666b063bb13a306147b)]
+
+   … retry 2/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(e316643cd588dbc4d9d10802b40e3956d42737d393737666b063bb13a306147b)]
+
+   ! stellar failed after 3 attempts
+ℹ️  Signing transaction: d490daa3b8245ff5a7c50d4e15a4a481c5b14258245b148a2ee8a74e786f4472
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: a495672686cde5fbb1a70992b63c9b0da3a1f6bc07ba30cb26d8548b41633e7a
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/a495672686cde5fbb1a70992b63c9b0da3a1f6bc07ba30cb26d8548b41633e7a
+📅 CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A - Success - Event: MintWithAmountOnly (mint), to: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", amount: "500000000000000"
+
+   USDB    CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(f5a7e5d965c9b6d39579d8f429a382a99b238c36307d90baec18ad47576264b7)]
+
+   … retry 1/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(f5a7e5d965c9b6d39579d8f429a382a99b238c36307d90baec18ad47576264b7)]
+
+   … retry 2/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(f5a7e5d965c9b6d39579d8f429a382a99b238c36307d90baec18ad47576264b7)]
+
+   ! stellar failed after 3 attempts
+ℹ️  Signing transaction: bb497b24cfa4f4883cfe0715c4cdfcbf86ff4632060aa3f2152dedefd94119c5
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 3391e321810051eff1d01f6c37c3b0b0d4da4a0cfa0b793fce65450594209967
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/3391e321810051eff1d01f6c37c3b0b0d4da4a0cfa0b793fce65450594209967
+📅 CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV - Success - Event: MintWithAmountOnly (mint), to: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", amount: "500000000000000"
+
+   USDD    CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(1a241df4c796179fa93f185086132b85ee0bb06d80bfff19022ff4fefa59ef25)]
+
+   … retry 1/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(1a241df4c796179fa93f185086132b85ee0bb06d80bfff19022ff4fefa59ef25)]
+
+   … retry 2/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(1a241df4c796179fa93f185086132b85ee0bb06d80bfff19022ff4fefa59ef25)]
+
+   ! stellar failed after 3 attempts
+ℹ️  Signing transaction: 7187089b1db2da44664d661dfcdb7581e65dbe75e6f49ade24044d030dd73a81
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: fae4c064a5a603cbf52a83d5d4da116b2373bd8fd0b4e564941e7a5a4211a882
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/fae4c064a5a603cbf52a83d5d4da116b2373bd8fd0b4e564941e7a5a4211a882
+📅 CANCIHPUY6LBPH5JH4MFBBQTFOC64C5QNWAL77YZAIX7J7X2LHXSLFCZ - Success - Event: MintWithAmountOnly (mint), to: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", amount: "500000000000000"
+
+   USDE    CANCIHPUY6LBPH5JH4MFBBQTFOC64C5QNWAL77YZAIX7J7X2LHXSLFCZ
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(7599f82cf0cb82bfe2c7cb190f585ffd8f5e61620c420c883f495b079af7b368)]
+
+   … retry 1/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(7599f82cf0cb82bfe2c7cb190f585ffd8f5e61620c420c883f495b079af7b368)]
+
+   … retry 2/3 (stellar)
+ℹ️  Simulating transaction…
+❌ error: transaction simulation failed: HostError: Error(Storage, ExistingValue)
+
+Event log (newest first):
+   0: [Diagnostic Event] topics:[error, Error(Storage, ExistingValue)], data:["contract already exists", Bytes(7599f82cf0cb82bfe2c7cb190f585ffd8f5e61620c420c883f495b079af7b368)]
+
+   ! stellar failed after 3 attempts
+ℹ️  Signing transaction: 727bc3b5bfb70b9c8bb4528c5c532c5bd3d8dc952f7ecc69ffdf417c2b1c3e30
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 2db92d15444324f09bbe59ec2ff2ef9a07cd3a36a94f770f93c1f27a55898c10
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/2db92d15444324f09bbe59ec2ff2ef9a07cd3a36a94f770f93c1f27a55898c10
+📅 CB2ZT6BM6DFYFP7CY7FRSD2YL76Y6XTBMIGEEDEIH5EVWB4266ZWQM6L - Success - Event: MintWithAmountOnly (mint), to: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", amount: "500000000000000"
+
+   USDF    CB2ZT6BM6DFYFP7CY7FRSD2YL76Y6XTBMIGEEDEIH5EVWB4266ZWQM6L
+
+[1;36m== 5/9  Pool A - SuperElliptical, 4 tokens (USDA USDB USDD USDE)[0m
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 5e5609d1a5af5a4d638b62ed9d44b812b7b5973ee7cf33416e46039083b4b963
+🌎 Sending transaction…
+❌ error: transaction submission timeout
+   … retry 1/4 (stellar)
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: b4edc2a0531859c8698cf5f20597720dbded0163a77ef826d996da67d1add796
+🌎 Sending transaction…
+❌ error: transaction submission timeout
+   … retry 2/4 (stellar)
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 6a907eedbed6246814757ed09547b58b83c7dd0542149e818b6a32f26ae8d216
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/6a907eedbed6246814757ed09547b58b83c7dd0542149e818b6a32f26ae8d216
+null
+   super pool: CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM
+
+[1;36m== 6/9  Pool B - Circular + ticks, 2 tokens (USDA/USDF)[0m
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: dc6a3fd25ee0de04b4b4f0e8f9dc7249bb8da07cac5f2cc6d8cd8b3d037f0933
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/dc6a3fd25ee0de04b4b4f0e8f9dc7249bb8da07cac5f2cc6d8cd8b3d037f0933
+null
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 26830e80a572bbb06d30e16a3a2abe93d583817bd34b763fb1e77d2ace475dec
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/26830e80a572bbb06d30e16a3a2abe93d583817bd34b763fb1e77d2ace475dec
+null
+   circle pool: CB5UC4V3XHBE2RKGLF3TEUCNECADIGMLG7ZV5VLK76DHNVUIHUEN5O27  (tick mode on)
+
+[1;36m== 7/9  Seed liquidity[0m
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: d9ca6ebbe67b05b561cdb5733b73288fd7eb10260e4b00106cfeeabb3fa434bf
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/d9ca6ebbe67b05b561cdb5733b73288fd7eb10260e4b00106cfeeabb3fa434bf
+📅 CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6 - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"string":"USDA:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"60000000000000"}
+📅 CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"string":"USDB:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"60000000000000"}
+📅 CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"string":"USDD:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"60000000000000"}
+📅 CANCIHPUY6LBPH5JH4MFBBQTFOC64C5QNWAL77YZAIX7J7X2LHXSLFCZ - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"string":"USDE:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"60000000000000"}
+📅 CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM - Success - Event: Deposit (deposit), from: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", shares: "3514718625761429806840132", amounts: ["60000000000000","60000000000000","60000000000000","60000000000000"]
+"3514718625761429806840132"
+   pool A: 6000000 of each leg  ->  24000000 total
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 358f191347584d85f257c5e347c2cb5b5991e39e3a710f2990b15857add06cf3
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/358f191347584d85f257c5e347c2cb5b5991e39e3a710f2990b15857add06cf3
+📅 CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6 - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CB5UC4V3XHBE2RKGLF3TEUCNECADIGMLG7ZV5VLK76DHNVUIHUEN5O27"},{"string":"USDA:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"20000000000000"}
+📅 CB2ZT6BM6DFYFP7CY7FRSD2YL76Y6XTBMIGEEDEIH5EVWB4266ZWQM6L - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CB5UC4V3XHBE2RKGLF3TEUCNECADIGMLG7ZV5VLK76DHNVUIHUEN5O27"},{"string":"USDF:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"20000000000000"}
+"6828427124746188502925030"
+   pool B: full-range [0,90]  2000000 + 2000000
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: d794b1fb60d7af29c940675f42801449cee2398d848482195dcab6bf6c270fb1
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/d794b1fb60d7af29c940675f42801449cee2398d848482195dcab6bf6c270fb1
+📅 CCTTKWIGUWJM7ZRBXCFP7AJKZPOQ2YYISBTA4ZIBMTYQBBLKO3FZ7OX6 - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CB5UC4V3XHBE2RKGLF3TEUCNECADIGMLG7ZV5VLK76DHNVUIHUEN5O27"},{"string":"USDA:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"5000000000000"}
+📅 CB2ZT6BM6DFYFP7CY7FRSD2YL76Y6XTBMIGEEDEIH5EVWB4266ZWQM6L - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CB5UC4V3XHBE2RKGLF3TEUCNECADIGMLG7ZV5VLK76DHNVUIHUEN5O27"},{"string":"USDF:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"5000000000000"}
+"8483539787737554998395970"
+   pool B: narrow    [40,50] 500000 + 500000
+
+[1;36m== 8/9  Simulations: 18 randomised swaps[0m
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 3deda7a888b96ca97c5ab85fcd2a71d07e49468e50f400b5c124f8cfed8269ec
+🌎 Sending transaction…
+✅ Transaction submitted successfully!
+🔗 https://stellar.expert/explorer/public/tx/3deda7a888b96ca97c5ab85fcd2a71d07e49468e50f400b5c124f8cfed8269ec
+📅 CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV - Success - Event: [{"symbol":"transfer"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"string":"USDD:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"9480000000"}
+📅 CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A - Success - Event: [{"symbol":"transfer"},{"address":"CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM"},{"address":"GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O"},{"string":"USDB:GCASMKFHTQRAAMDGB4IMS3ZXI2FZR7G4XS74MVTBR5D2UADD63ALRN4U"}] = {"i128":"9450071368"}
+📅 CDBVM2FMNSDDR4FXE53RWCMWMLILFRSTO3345NGIWI63NNMO7TIPY6PM - Success - Event: Swap (swap), from: "GDLAEZGPYY6QDVHIEFWME3UFG6475EOADUDZ4MDEEHBEK6GOLDGIEX3O", token_in: "CD22PZOZMXE3NU4VPHMPIKNDQKUZWI4MGYYH3EF25QMK2R2XMJSLP2TV", amount_in: "9480000000", token_out: "CDRRMZB42WENXRGZ2EEAFNAOHFLNIJZX2OJXG5TGWBR3WE5DAYKHXM2A", amount_out: "9450071368"
+"9450071368"
+   swap  1/18  super        948  ok
+ℹ️  Simulating transaction…
+ℹ️  Signing transaction: 2ea1293acd5181c4e87153da79197130e837ca956fff2971ffc93b443a179568
+🌎 Sending transaction…

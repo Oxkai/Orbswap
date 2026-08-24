@@ -7,6 +7,7 @@ import { color, typography } from "@/constants";
 import { fmtUSD, type Pool } from "@/lib/mock/data";
 import { TokenIcon } from "@/components/app/shared/TokenIcon";
 import { NetworkStellar } from "@web3icons/react";
+import { explorerContract, NETWORK_LABEL } from "@/lib/stellar/config";
 
 
 
@@ -171,7 +172,7 @@ export function PoolCard({ pool }: PoolCardProps) {
           </span>
           <CopyButton text={pool.address} />
           <a
-            href={`https://stellar.expert/explorer/testnet/contract/${pool.address}`}
+            href={explorerContract(pool.address)}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -183,7 +184,7 @@ export function PoolCard({ pool }: PoolCardProps) {
           </a>
           <span className="flex items-center gap-1.5 shrink-0 pl-1" style={body("caption", color.textMuted)}>
             <NetworkStellar size={11} variant="mono" color={color.textMuted} />
-            Stellar Testnet
+            {NETWORK_LABEL}
           </span>
         </div>
 

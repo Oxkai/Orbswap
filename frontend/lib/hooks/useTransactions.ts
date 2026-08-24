@@ -8,6 +8,8 @@ import { TICK_POOL } from "@/lib/stellar/ticks";
 export type TxType = "Swap" | "Add" | "Remove" | "Collect";
 
 export interface TxRecord {
+  /** Stable React key: one transaction can produce several rows. */
+  id: string;
   type: TxType;
   hash: string;
   blockNumber: bigint; // ledger sequence
@@ -32,7 +34,7 @@ function sumAmounts(amounts: any): number {
 
 /**
  * Recent pool activity from Soroban contract events. Single fetch of the recent
- * ledger window (testnet event retention is short), newest first.
+ * ledger window (RPC event retention is short), newest first.
  */
 export function useTransactions(_poolTokens: { symbol: string; address: string }[]) {
   const [txs, setTxs] = useState<TxRecord[]>([]);
@@ -47,6 +49,7 @@ export function useTransactions(_poolTokens: { symbol: string; address: string }
       const records: TxRecord[] = events
         .map((e): TxRecord | null => {
           const base = {
+            id: e.id,
             hash: e.txHash,
             blockNumber: BigInt(e.ledger),
             timestamp: e.ts,

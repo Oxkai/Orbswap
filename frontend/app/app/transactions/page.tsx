@@ -4,10 +4,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowSquareOut, ArrowsLeftRight, Plus, Minus, Tray } from "@phosphor-icons/react";
 import { color, typography } from "@/constants";
 import { useTransactions, type TxType } from "@/lib/hooks/useTransactions";
-import { TOKENS } from "@/lib/stellar/config";
+import { TOKENS, EXPLORER } from "@/lib/stellar/config";
 import { TokenIcon } from "@/components/app/shared/TokenIcon";
 
-const EXPLORER = "https://stellar.expert/explorer/testnet";
+
 
 const POOL_TOKENS = TOKENS.map((t) => ({ symbol: t.symbol, address: t.address }));
 
@@ -260,7 +260,7 @@ export default function TransactionsPage() {
 
               return (
                 <div
-                  key={`${tx.hash}-${tx.blockNumber}`}
+                  key={tx.id}
                   className="hover:bg-(--color-surface-2) transition-colors"
                   style={{ backgroundColor: color.surface1 }}
                 >

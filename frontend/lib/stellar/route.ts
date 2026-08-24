@@ -98,7 +98,9 @@ export async function swapRoute(opts: {
   return routerSwapExactIn({
     from,
     pools: route.map((h) => h.pool),
-    tokenIn: route[0].tokenIn,
+    // tokens[i] -> tokens[i+1] across pools[i]: the first hop's input followed by
+    // every hop's output.
+    tokens: [route[0].tokenIn, ...route.map((h) => h.tokenOut)],
     amountIn,
     minOut,
     deadline,

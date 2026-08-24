@@ -1,11 +1,21 @@
 #![no_std]
 //! Orbswap router — stateless multi-hop swap + liquidity orchestrator.
 //!
-//! A swap `path` is a list of **pool addresses**. The router chains
-//! `pool.swap(user, …)` calls with `from = user` at every hop, so the **user**
-//! holds the intermediate tokens (the router never takes custody) and the user's
-//! authorization covers the whole invocation tree. Only the final output is
-//! slippage-checked (`min_out`); intermediate hops pass `min_out = 0`.
+//! A swap path is a list of **pool addresses** plus the **token path** through
+//! them: `tokens[i] -> tokens[i+1]` across `pools[i]`, so `tokens.len()` is always
+//! `pools.len() + 1`. The token path is explicit because an n-token pool has no
+//! single "other" token to infer — a 4-token pool can be entered and left by any
+//! of its legs.
+//!
+//! The router chains `pool.swap(user, …)` calls with `from = user` at every hop,
+//! so the **user** holds the intermediate tokens (the router never takes custody).
+//! Each entry point calls `require_auth()` on the user first: the host's recording
+//! auth mode requires an address's authorization to be rooted at the top-level
+//! invocation, so leaving it to the pool's own `require_auth` in a nested frame
+//! fails with `Error(Auth, InvalidAction)`.
+//!
+//! Only the final output is slippage-checked (`min_out`); intermediate hops pass
+//! `min_out = 0`.
 
 use orbswap_pool_interface::PoolClient;
 use soroban_sdk::{contract, contracterror, contractimpl, Address, Env, Vec};
@@ -20,6 +30,8 @@ pub enum RouterError {
     EmptyPath = 1,
     TokenNotInPool = 2,
     SlippageExceeded = 3,
+    /// `tokens.len() != pools.len() + 1`.
+    PathMismatch = 4,
 }
 
 #[contract]
@@ -27,28 +39,32 @@ pub struct OrbswapRouter;
 
 #[contractimpl]
 impl OrbswapRouter {
-    /// Swap `amount_in` of `token_in` through `pools`, returning the final output.
+    /// Swap `amount_in` along `tokens` through `pools`, returning the final output.
     /// `user` authorizes; each hop delivers to `user`. Final output must be ≥ `min_out`.
     pub fn swap_exact_in(
         env: Env,
         user: Address,
         pools: Vec<Address>,
-        token_in: Address,
+        tokens: Vec<Address>,
         amount_in: i128,
         min_out: i128,
         deadline: u64,
     ) -> Result<i128, RouterError> {
-        if pools.is_empty() {
-            return Err(RouterError::EmptyPath);
-        }
-        let mut cur_token = token_in;
+        // Must be the root of the auth tree — see the module docs.
+        user.require_auth();
+        check_path(&pools, &tokens)?;
         let mut cur_amount = amount_in;
         for i in 0..pools.len() {
             let pool = PoolClient::new(&env, &pools.get_unchecked(i));
-            let token_out = other_token(&pool, &cur_token)?;
             // Intermediate hops: no per-hop slippage (only the final output matters).
-            cur_amount = pool.swap(&user, &cur_token, &cur_amount, &token_out, &0, &deadline);
-            cur_token = token_out;
+            cur_amount = pool.swap(
+                &user,
+                &tokens.get_unchecked(i),
+                &cur_amount,
+                &tokens.get_unchecked(i + 1),
+                &0,
+                &deadline,
+            );
         }
         if cur_amount < min_out {
             return Err(RouterError::SlippageExceeded);
@@ -63,47 +79,44 @@ impl OrbswapRouter {
         env: Env,
         user: Address,
         pools: Vec<Address>,
-        token_out: Address,
+        tokens: Vec<Address>,
         amount_out: i128,
         max_in: i128,
         deadline: u64,
     ) -> Result<i128, RouterError> {
+        // Must be the root of the auth tree — see the module docs.
+        user.require_auth();
+        check_path(&pools, &tokens)?;
         let n = pools.len();
-        if n == 0 {
-            return Err(RouterError::EmptyPath);
-        }
-        // Backward pass: reversed vectors (index 0 = last hop).
-        let mut rev_in: Vec<Address> = Vec::new(&env);
-        let mut rev_out: Vec<Address> = Vec::new(&env);
+        // Backward pass: size every hop from the required final output.
+        // `rev_amt` is filled last-hop-first, so hop j sits at index n-1-j.
         let mut rev_amt: Vec<i128> = Vec::new(&env);
-        let mut cur_out_token = token_out;
         let mut cur_out_amount = amount_out;
         let mut i = n;
         while i > 0 {
             i -= 1;
             let pool = PoolClient::new(&env, &pools.get_unchecked(i));
-            let in_token = other_token(&pool, &cur_out_token)?;
-            let in_amt = pool.quote_exact_out(&in_token, &cur_out_token, &cur_out_amount);
-            rev_in.push_back(in_token.clone());
-            rev_out.push_back(cur_out_token.clone());
+            let in_amt = pool.quote_exact_out(
+                &tokens.get_unchecked(i),
+                &tokens.get_unchecked(i + 1),
+                &cur_out_amount,
+            );
             rev_amt.push_back(cur_out_amount);
-            cur_out_token = in_token;
             cur_out_amount = in_amt;
         }
-        // cur_out_amount is the total input required at hop 0.
+        // cur_out_amount is now the total input required at hop 0.
         if cur_out_amount > max_in {
             return Err(RouterError::SlippageExceeded);
         }
         // Forward execution: forward hop j ↔ reversed index (n-1-j).
         let mut total_in = 0i128;
         for j in 0..n {
-            let ri = n - 1 - j;
             let pool = PoolClient::new(&env, &pools.get_unchecked(j));
             let paid = pool.swap_exact_out(
                 &user,
-                &rev_in.get_unchecked(ri),
-                &rev_out.get_unchecked(ri),
-                &rev_amt.get_unchecked(ri),
+                &tokens.get_unchecked(j),
+                &tokens.get_unchecked(j + 1),
+                &rev_amt.get_unchecked(n - 1 - j),
                 &i128::MAX, // per-hop bound; the total is checked above
                 &deadline,
             );
@@ -118,19 +131,18 @@ impl OrbswapRouter {
     pub fn quote_path(
         env: Env,
         pools: Vec<Address>,
-        token_in: Address,
+        tokens: Vec<Address>,
         amount_in: i128,
     ) -> Result<i128, RouterError> {
-        if pools.is_empty() {
-            return Err(RouterError::EmptyPath);
-        }
-        let mut cur_token = token_in;
+        check_path(&pools, &tokens)?;
         let mut cur_amount = amount_in;
         for i in 0..pools.len() {
             let pool = PoolClient::new(&env, &pools.get_unchecked(i));
-            let token_out = other_token(&pool, &cur_token)?;
-            cur_amount = pool.quote(&cur_token, &cur_amount, &token_out);
-            cur_token = token_out;
+            cur_amount = pool.quote(
+                &tokens.get_unchecked(i),
+                &cur_amount,
+                &tokens.get_unchecked(i + 1),
+            );
         }
         Ok(cur_amount)
     }
@@ -144,6 +156,7 @@ impl OrbswapRouter {
         min_shares: i128,
         deadline: u64,
     ) -> i128 {
+        from.require_auth();
         PoolClient::new(&env, &pool).deposit(&from, &amounts, &min_shares, &deadline)
     }
 
@@ -156,20 +169,18 @@ impl OrbswapRouter {
         min_amounts: Vec<i128>,
         deadline: u64,
     ) -> Vec<i128> {
+        from.require_auth();
         PoolClient::new(&env, &pool).withdraw(&from, &shares, &min_amounts, &deadline)
     }
 }
 
-/// The other token of a 2-token pool, given the current input token.
-fn other_token(pool: &PoolClient, current: &Address) -> Result<Address, RouterError> {
-    let cfg = pool.get_config();
-    let a = cfg.tokens.get_unchecked(0);
-    let b = cfg.tokens.get_unchecked(1);
-    if current == &a {
-        Ok(b)
-    } else if current == &b {
-        Ok(a)
-    } else {
-        Err(RouterError::TokenNotInPool)
+/// A path is well formed when every pool has an input and an output token.
+fn check_path(pools: &Vec<Address>, tokens: &Vec<Address>) -> Result<(), RouterError> {
+    if pools.is_empty() {
+        return Err(RouterError::EmptyPath);
     }
+    if tokens.len() != pools.len() + 1 {
+        return Err(RouterError::PathMismatch);
+    }
+    Ok(())
 }

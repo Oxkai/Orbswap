@@ -5,7 +5,7 @@ import { CurrencyDollar, Pulse, Wallet } from "@phosphor-icons/react";
 import { useStellarWallet } from "@/lib/stellar/wallet";
 import { usePositions } from "@/lib/hooks/usePositions";
 import { usePool } from "@/lib/hooks/usePool";
-import { TOKENS } from "@/lib/stellar/config";
+import { TOKENS, NETWORK_LABEL } from "@/lib/stellar/config";
 import { TokenIcon } from "@/components/app/shared/TokenIcon";
 
 const LBL = {
@@ -59,7 +59,7 @@ export default function PositionsPage() {
           Positions
         </h1>
         <p style={{ fontFamily: typography.p2.family, fontSize: typography.p2.size, color: color.textMuted, lineHeight: typography.p2.lineHeight }}>
-          Your liquidity in the Orbswap 4-token pool on Stellar testnet.
+          Your liquidity in the Orbswap 4-token pool on {NETWORK_LABEL}.
         </p>
       </header>
 
