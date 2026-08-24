@@ -184,3 +184,135 @@ fn min_out_boundary_is_exact() {
         .swap(&f.lp, &f.token_a, &100_000_000, &f.token_b, &q, &u64::MAX);
     assert_eq!(out, q);
 }
+
+// ─── Rate-aware pools: attempts to extract the Phase 0 pot ──────────────────
+// todo.md §0 measured that an open off-curve pool pays its entire revaluation to
+// the first trader, at any trade size. These probe the guards that close it.
+
+mod rate_attacks {
+    use super::super::{move_rate, rate_pool, ONE_FEED};
+    use crate::OrbswapError;
+    use soroban_sdk::testutils::Ledger as _;
+
+    /// Sandwich the repeg: trade, move the rate, trade again in the same ledger.
+    /// The middle leg must be refused, so no pot is payable.
+    #[test]
+    fn sandwich_around_a_rate_update_extracts_nothing() {
+        let (f, feed) = rate_pool();
+        let start = f.balance(&f.token_a, &f.lp);
+
+        let got = f
+            .pool
+            .swap(&f.lp, &f.token_a, &10_000_000, &f.token_b, &0, &u64::MAX);
+        move_rate(&f, &feed, 105, 100);
+
+        // The attacker's second leg lands while the pool is off-curve.
+        assert_eq!(
+            match f
+                .pool
+                .try_swap(&f.lp, &f.token_b, &got, &f.token_a, &0, &u64::MAX)
+            {
+                Err(Ok(e)) => Some(e),
+                _ => None,
+            },
+            Some(OrbswapError::OffCurve),
+            "the sandwich must not close"
+        );
+        assert!(f.balance(&f.token_a, &f.lp) < start);
+    }
+
+    /// A dust trade was the cheapest way to take the whole pot (§0). Confirm the
+    /// gate does not care how small the trade is.
+    #[test]
+    fn dust_trade_cannot_take_the_pot() {
+        let (f, feed) = rate_pool();
+        move_rate(&f, &feed, 101, 100);
+        for size in [1i128, 10, 1_000, 100_000] {
+            let e = match f
+                .pool
+                .try_swap(&f.lp, &f.token_a, &size, &f.token_b, &0, &u64::MAX)
+            {
+                Err(Ok(e)) => Some(e),
+                _ => None,
+            };
+            assert_eq!(
+                e,
+                Some(OrbswapError::OffCurve),
+                "size {size} slipped through"
+            );
+        }
+    }
+
+    /// Repeated pokes at an unchanged price must not drift state or close the pool.
+    #[test]
+    fn repeated_pokes_at_one_price_are_inert() {
+        let (f, feed) = rate_pool();
+        let rate = f.pool.get_rate(&f.token_b);
+        let s = f.pool.liquidity_scale();
+        for i in 0..25u64 {
+            feed.set_timestamp(&(f.env.ledger().timestamp() + i));
+            f.pool.poke_rate();
+        }
+        assert_eq!(f.pool.get_rate(&f.token_b), rate);
+        assert_eq!(f.pool.liquidity_scale(), s);
+        assert!(!f.pool.needs_reanchor());
+    }
+
+    /// Walking the rate in many sub-threshold steps must not sneak past the
+    /// deviation bound without closing the pool each time.
+    #[test]
+    fn salami_slicing_the_rate_still_closes_the_pool() {
+        let (f, feed) = rate_pool();
+        for step in 1..=4i128 {
+            feed.set_price(&f.token_b, &(ONE_FEED / 1_000 * (100 + step) / 100));
+            f.pool.poke_rate();
+            assert!(
+                f.pool.needs_reanchor(),
+                "step {step} left the pool open off-curve"
+            );
+            f.pool.re_anchor(&u64::MAX);
+        }
+    }
+
+    /// Withdrawing while off-curve must not pay out more than an on-curve exit.
+    ///
+    /// Each pool gets its own `Env`, so the `min_amounts` vector must be built
+    /// per-env — a Soroban `Vec` is bound to the host it was created in.
+    #[test]
+    fn off_curve_withdraw_is_not_a_back_door() {
+        // Baseline: repeg first, then exit.
+        let (g, gf) = rate_pool();
+        move_rate(&g, &gf, 101, 100);
+        g.pool.re_anchor(&u64::MAX);
+        let g_mins = soroban_sdk::Vec::from_array(&g.env, [0i128, 0i128]);
+        let g_shares = g.pool.shares_of(&g.lp);
+        let clean = g.pool.withdraw(&g.lp, &(g_shares / 4), &g_mins, &u64::MAX);
+
+        // Attacker: exit while still off-curve.
+        let (f, feed) = rate_pool();
+        move_rate(&f, &feed, 101, 100);
+        let f_mins = soroban_sdk::Vec::from_array(&f.env, [0i128, 0i128]);
+        let f_shares = f.pool.shares_of(&f.lp);
+        let dirty = f.pool.withdraw(&f.lp, &(f_shares / 4), &f_mins, &u64::MAX);
+
+        assert!(
+            dirty.get_unchecked(0) <= clean.get_unchecked(0)
+                && dirty.get_unchecked(1) <= clean.get_unchecked(1),
+            "an off-curve exit must not beat a repegged one"
+        );
+    }
+
+    /// A pending re-anchor must survive a staleness window opening and closing.
+    #[test]
+    fn staleness_cannot_clear_a_pending_reanchor() {
+        let (f, feed) = rate_pool();
+        move_rate(&f, &feed, 102, 100);
+        f.env.ledger().with_mut(|l| l.timestamp += 3_601);
+        feed.set_timestamp(&f.env.ledger().timestamp());
+        f.pool.poke_rate(); // refreshes the clock, same price
+        assert!(
+            f.pool.needs_reanchor(),
+            "a fresh timestamp must not paper over an unrepegged pool"
+        );
+    }
+}

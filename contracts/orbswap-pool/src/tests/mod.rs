@@ -10,9 +10,15 @@ mod deposit;
 mod exact_out;
 mod features;
 mod initialize;
+pub mod mock_feed;
 mod ndim;
+mod operator;
 mod oracle;
 mod pause;
+mod rates_mapping;
+mod rates_oracle;
+mod rates_reanchor;
+mod rates_safety;
 mod reentrancy;
 mod swap;
 mod tick_liquidity;
@@ -110,4 +116,37 @@ fn create_token<'a>(
     // and asserted by tests that need it.
     let _ = decimals;
     (addr, admin_client)
+}
+
+// ─── Rate-aware fixtures (shared by the Phase 1–5 suites) ────────────────────
+
+/// 14-decimal feed, matching Reflector's reported precision.
+pub const FEED_DEC: u32 = 14;
+/// `1.0` at [`FEED_DEC`].
+pub const ONE_FEED: i128 = 100_000_000_000_000;
+pub const RATE_FEE_BPS: i128 = 30;
+pub const RATE_MINT: i128 = 1_000_000_000_000_000;
+
+/// A seeded rate-aware `SuperElliptical` pool at `1 token_b = 0.001 token_a`,
+/// plus a handle on its feed. `token_b` is the quote leg, `token_a` the numeraire.
+pub fn rate_pool() -> (Fixture, mock_feed::MockFeedClient<'static>) {
+    let f = Fixture::new(7, RATE_MINT);
+    f.init_superelliptical(TWO_PLUS_SQRT2, TWO_PLUS_SQRT2, RATE_FEE_BPS);
+    let feed_id = f.env.register(mock_feed::MockFeed, ());
+    let feed = mock_feed::MockFeedClient::new(&f.env, &feed_id);
+    feed.init(&FEED_DEC, &f.token_a);
+    feed.set_price(&f.token_b, &(ONE_FEED / 1_000));
+    feed.set_price(&f.token_a, &ONE_FEED);
+    feed.set_timestamp(&f.env.ledger().timestamp());
+    f.pool
+        .configure_rates(&feed_id, &1, &0, &false, &3600, &500);
+    let amounts = Vec::from_array(&f.env, [10_000_000_000i128, 10_000_000_000_000i128]);
+    f.pool.deposit(&f.lp, &amounts, &0, &u64::MAX);
+    (f, feed)
+}
+
+/// Move the quote price to `num/den` of its original value and accept it.
+pub fn move_rate(f: &Fixture, feed: &mock_feed::MockFeedClient<'static>, num: i128, den: i128) {
+    feed.set_price(&f.token_b, &(ONE_FEED / 1_000 * num / den));
+    f.pool.poke_rate();
 }

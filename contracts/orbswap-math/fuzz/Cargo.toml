@@ -53,3 +53,10 @@ path = "fuzz_targets/csemm_ccmm_equiv.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "rate_reanchor"
+path = "fuzz_targets/rate_reanchor.rs"
+test = false
+doc = false
+bench = false

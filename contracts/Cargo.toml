@@ -6,6 +6,7 @@ members = [
     "orbswap-pool",
     "orbswap-factory",
     "orbswap-router",
+    "orbswap-feed-stub",
 ]
 
 [workspace.package]

@@ -5,7 +5,7 @@
 //! `todo.md` §2.1 config/state split.
 
 use crate::errors::OrbswapError;
-use crate::types::{Config, Paused, Position};
+use crate::types::{Config, Paused, Position, RateConfig, WAD};
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
 // Instance TTL bump thresholds (ledgers). ~30 days at 5s/ledger ≈ 518k.
@@ -63,6 +63,23 @@ pub enum DataKey {
     TickFeeOutside(u32),
     /// Per-LP concentrated position keyed by (owner, lower°, upper°) (persistent).
     Position(Address, u32, u32),
+
+    // ── Rate-aware pools (todo.md §3) ─────────────────────────────────────────
+    /// [`RateConfig`] for an oracle-priced pool; absent ⇒ parity mode (instance).
+    RateCfg,
+    /// Last-accepted rate per token, WAD, parallel to `Config.tokens` (instance).
+    Rates,
+    /// Ledger timestamp of the last accepted rate (instance).
+    RateLastTime,
+    /// Latched oracle circuit breaker (instance; default false).
+    RateBreaker,
+    /// Set when an accepted rate change moved the pool off its curve; cleared by
+    /// `re_anchor`. Trading is refused while set (todo.md §0).
+    NeedsReAnchor,
+    /// Whether the LP allowlist is enforced (instance; default false).
+    OperatorMode,
+    /// Per-address LP permission (persistent).
+    Operator(Address),
 }
 
 pub fn is_initialized(env: &Env) -> bool {
@@ -322,4 +339,116 @@ pub fn remove_position(env: &Env, owner: &Address, lower: u32, upper: u32) {
     env.storage()
         .persistent()
         .remove(&DataKey::Position(owner.clone(), lower, upper));
+}
+
+// ─── Rate-aware pools ────────────────────────────────────────────────────────
+// Accessors land with the storage keys (Phase 1); the entrypoints that call them
+// arrive in Phases 2–5, which removes each `allow`. See todo.md §Phase 2.
+
+pub fn get_rate_config(env: &Env) -> Option<RateConfig> {
+    env.storage().instance().get(&DataKey::RateCfg)
+}
+
+pub fn set_rate_config(env: &Env, cfg: &RateConfig) {
+    env.storage().instance().set(&DataKey::RateCfg, cfg);
+}
+
+pub fn has_rate_config(env: &Env) -> bool {
+    env.storage().instance().has(&DataKey::RateCfg)
+}
+
+/// Last-accepted rates, WAD, parallel to `Config.tokens`. In parity mode (no
+/// [`RateConfig`]) every entry is `WAD`, so callers need no special case.
+pub fn get_rates(env: &Env, n: u32) -> Vec<i128> {
+    env.storage()
+        .instance()
+        .get(&DataKey::Rates)
+        .unwrap_or_else(|| {
+            let mut v = Vec::new(env);
+            for _ in 0..n {
+                v.push_back(WAD);
+            }
+            v
+        })
+}
+
+pub fn set_rates(env: &Env, rates: &Vec<i128>, last_time: u64) {
+    env.storage().instance().set(&DataKey::Rates, rates);
+    env.storage()
+        .instance()
+        .set(&DataKey::RateLastTime, &last_time);
+}
+
+pub fn get_rate_last_time(env: &Env) -> u64 {
+    env.storage()
+        .instance()
+        .get(&DataKey::RateLastTime)
+        .unwrap_or(0)
+}
+
+pub fn get_rate_breaker(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::RateBreaker)
+        .unwrap_or(false)
+}
+
+pub fn set_rate_breaker(env: &Env, tripped: bool) {
+    env.storage()
+        .instance()
+        .set(&DataKey::RateBreaker, &tripped);
+}
+
+pub fn get_operator_mode(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::OperatorMode)
+        .unwrap_or(false)
+}
+
+pub fn set_operator_mode(env: &Env, enabled: bool) {
+    env.storage()
+        .instance()
+        .set(&DataKey::OperatorMode, &enabled);
+}
+
+pub fn is_operator(env: &Env, who: &Address) -> bool {
+    let key = DataKey::Operator(who.clone());
+    let allowed: bool = env.storage().persistent().get(&key).unwrap_or(false);
+    if allowed {
+        env.storage().persistent().extend_ttl(
+            &key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+    }
+    allowed
+}
+
+pub fn set_operator(env: &Env, who: &Address, allowed: bool) {
+    let key = DataKey::Operator(who.clone());
+    env.storage().persistent().set(&key, &allowed);
+    env.storage().persistent().extend_ttl(
+        &key,
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
+    );
+}
+
+/// Whether an accepted rate change has left the pool off-curve.
+///
+/// A cheap boolean rather than an on-curve computation: verifying the invariant
+/// costs several transcendental evaluations, and swaps cannot afford that per
+/// call. `poke_rate` sets it, `re_anchor` clears it.
+pub fn get_needs_reanchor(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::NeedsReAnchor)
+        .unwrap_or(false)
+}
+
+pub fn set_needs_reanchor(env: &Env, needs: bool) {
+    env.storage()
+        .instance()
+        .set(&DataKey::NeedsReAnchor, &needs);
 }

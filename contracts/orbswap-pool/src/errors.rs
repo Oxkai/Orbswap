@@ -44,6 +44,24 @@ pub enum OrbswapError {
     InvalidTickRange = 21,
     /// No position exists for this (owner, range).
     PositionNotFound = 22,
+
+    // ── Rate-aware pools (see todo.md §2) ──────────────────────────────────────
+    /// Cached rate is older than `RateConfig.max_age_secs`.
+    RateStale = 23,
+    /// A fetched rate moved further than `RateConfig.max_deviation_bps` from the
+    /// last accepted one. Trips the breaker rather than repricing.
+    RateDeviation = 24,
+    /// The oracle circuit breaker is latched; only `admin` can clear it.
+    RateBreakerTripped = 25,
+    /// Pool state sits off the invariant — a `re_anchor` is pending. Trading is
+    /// refused until it lands (see todo.md §0: an open off-curve pool is a free pot).
+    OffCurve = 26,
+    /// Caller is not on the LP allowlist while operator mode is enabled.
+    NotOperator = 27,
+    /// The SEP-40 feed returned `None`, or the cross-rate divisor was zero.
+    OracleUnavailable = 28,
+    /// Bad `configure_rates` params (index, bounds, decimals, or duplicate config).
+    InvalidRateConfig = 29,
 }
 
 impl From<CircleLiqError> for OrbswapError {

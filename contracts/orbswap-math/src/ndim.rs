@@ -130,24 +130,35 @@ pub fn swap_out_n(
     Ok((amount_out, new_x_in, new_x_out))
 }
 
+/// Signed invariant residual `Σᵢ |xᵢ/αᵢ − 1|^u(αᵢ) − 1` (WAD).
+///
+/// Zero exactly on the curve, negative inside it, positive outside. Uses the
+/// magnitude form, so it is defined off-arc too.
+///
+/// **Monotonicity.** Each term `|x/α − 1|^u` decreases as `x` rises from `0` to
+/// `α`. So on the arc (`0 ≤ xᵢ ≤ αᵢ`) the residual is strictly decreasing in every
+/// `xᵢ` — which is what lets a caller solve for the liquidity scale by bisection.
+/// Past `x > α` the magnitude turns and the property is lost, so a solver must
+/// keep its bracket on the arc.
+pub fn invariant_residual_n(reserves: &[i128], params: &[i128]) -> Result<i128, CsemmError> {
+    let n = reserves.len();
+    if n < 2 || params.len() != n {
+        return Err(CsemmError::OutOfRange);
+    }
+    let mut s: i128 = 0;
+    for j in 0..n {
+        let uj = u(params[j])?;
+        s = s
+            .checked_add(mag_term(reserves[j], params[j], uj)?)
+            .ok_or(CsemmError::Overflow)?;
+    }
+    Ok(s - FIXED_SCALE)
+}
+
 /// Whether `reserves` satisfy the n-dim invariant within `epsilon` (WAD):
 /// `| Σᵢ |xᵢ/αᵢ − 1|^u(αᵢ) − 1 | ≤ epsilon`. `false` on any error.
 pub fn invariant_holds_n(reserves: &[i128], params: &[i128], epsilon: i128) -> bool {
-    let residual = || -> Result<i128, CsemmError> {
-        let n = reserves.len();
-        if n < 2 || params.len() != n {
-            return Err(CsemmError::OutOfRange);
-        }
-        let mut s: i128 = 0;
-        for j in 0..n {
-            let uj = u(params[j])?;
-            s = s
-                .checked_add(mag_term(reserves[j], params[j], uj)?)
-                .ok_or(CsemmError::Overflow)?;
-        }
-        Ok(s - FIXED_SCALE)
-    };
-    match residual() {
+    match invariant_residual_n(reserves, params) {
         Ok(r) => r.unsigned_abs() <= epsilon.unsigned_abs(),
         Err(_) => false,
     }

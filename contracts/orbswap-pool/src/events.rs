@@ -51,6 +51,41 @@ pub struct SharesTransferred {
 }
 
 #[contractevent]
+pub struct RateUpdated {
+    pub token: Address,
+    pub old_rate: i128,
+    pub new_rate: i128,
+    pub timestamp: u64,
+}
+
+#[contractevent]
+pub struct RateConfigured {
+    pub feed: Address,
+    pub quote_index: u32,
+    pub max_age_secs: u64,
+    pub max_deviation_bps: i128,
+}
+
+#[contractevent]
+pub struct RateBreakerChanged {
+    pub tripped: bool,
+    pub reason: Symbol,
+}
+
+#[contractevent]
+pub struct OperatorChanged {
+    pub who: Address,
+    pub allowed: bool,
+}
+
+#[contractevent]
+pub struct ReAnchored {
+    pub old_s: i128,
+    pub new_s: i128,
+    pub rate: i128,
+}
+
+#[contractevent]
 pub struct TickCrossed {
     pub tick: u32,
     pub up: bool,
@@ -127,6 +162,48 @@ pub fn tick_crossed(env: &Env, tick: u32, up: bool, active_liquidity: i128) {
         tick,
         up,
         active_liquidity,
+    }
+    .publish(env);
+}
+
+pub fn rate_updated(env: &Env, token: &Address, old_rate: i128, new_rate: i128, timestamp: u64) {
+    RateUpdated {
+        token: token.clone(),
+        old_rate,
+        new_rate,
+        timestamp,
+    }
+    .publish(env);
+}
+
+pub fn rate_configured(
+    env: &Env,
+    feed: &Address,
+    quote_index: u32,
+    max_age_secs: u64,
+    max_deviation_bps: i128,
+) {
+    RateConfigured {
+        feed: feed.clone(),
+        quote_index,
+        max_age_secs,
+        max_deviation_bps,
+    }
+    .publish(env);
+}
+
+pub fn rate_breaker_changed(env: &Env, tripped: bool, reason: Symbol) {
+    RateBreakerChanged { tripped, reason }.publish(env);
+}
+
+pub fn re_anchored(env: &Env, old_s: i128, new_s: i128, rate: i128) {
+    ReAnchored { old_s, new_s, rate }.publish(env);
+}
+
+pub fn operator_changed(env: &Env, who: &Address, allowed: bool) {
+    OperatorChanged {
+        who: who.clone(),
+        allowed,
     }
     .publish(env);
 }

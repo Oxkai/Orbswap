@@ -8,7 +8,7 @@
 //! 18 decimals); `s` is the dynamic liquidity scale (WAD); shape `α, β` is fixed.
 
 pub use orbswap_pool_interface::{Config, PoolMode, MINIMUM_LIQUIDITY, TWO_PLUS_SQRT2, WAD};
-use soroban_sdk::{contracttype, Vec};
+use soroban_sdk::{contracttype, Address, Vec};
 
 /// Per-operation pause flags (all default `false`). Withdrawals ideally stay open.
 #[contracttype]
@@ -35,4 +35,31 @@ pub const MAX_TICK: u32 = 90;
 pub struct Position {
     pub liquidity: i128,
     pub fee_growth_inside_last: Vec<i128>,
+}
+
+/// Oracle configuration for a **rate-aware** pool (todo.md §3). Absent from
+/// storage ⇒ the pool is in parity mode and every rate is exactly `WAD`.
+///
+/// `rates[numeraire_index]` is pinned at `WAD`; only `quote_index` ever moves, so
+/// the balanced point tracks the feed instead of sitting at 1:1.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RateConfig {
+    /// SEP-40 `PriceFeedTrait` contract.
+    pub feed: Address,
+    /// Index into `Config.tokens` of the leg the feed prices (the local currency).
+    pub quote_index: u32,
+    /// Index into `Config.tokens` of the leg pinned at `WAD` (the USDC side).
+    pub numeraire_index: u32,
+    /// `true` ⇒ the feed is denominated in something other than the numeraire
+    /// (e.g. Lightecho quotes against XLM), so the rate is
+    /// `lastprice(quote) / lastprice(numeraire)` and the staleness check uses the
+    /// **older** of the two timestamps.
+    pub cross: bool,
+    /// Staleness threshold, seconds.
+    pub max_age_secs: u64,
+    /// Per-update move that trips the breaker instead of being accepted.
+    pub max_deviation_bps: i128,
+    /// Cached `feed.decimals()`, read once at `configure_rates`.
+    pub feed_decimals: u32,
 }

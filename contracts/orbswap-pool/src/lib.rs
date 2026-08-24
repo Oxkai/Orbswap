@@ -12,6 +12,7 @@
 
 mod errors;
 mod events;
+mod rates;
 mod storage;
 pub mod types;
 
@@ -32,7 +33,7 @@ use orbswap_math::oracle;
 use orbswap_math::polar;
 use orbswap_math::ticks;
 use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, Vec};
-use types::{Position, MINIMUM_LIQUIDITY, TWO_PLUS_SQRT2, WAD};
+use types::{Position, RateConfig, MINIMUM_LIQUIDITY, TWO_PLUS_SQRT2, WAD};
 
 /// Tolerance (WAD) for the post-swap invariant check in SuperElliptical mode, and
 /// the proportional-deposit ratio check.
@@ -102,7 +103,12 @@ fn tick_swap(
     let (in_idx, out_idx) = if x_for_y { (0u32, 1u32) } else { (1u32, 0u32) };
     let scale_in = config.scales.get_unchecked(in_idx);
     let scale_out = config.scales.get_unchecked(out_idx);
-    let mut remaining = internal(net_native, scale_in)?;
+    // Circular pools are rejected by `configure_rates`, so these are always WAD;
+    // threaded anyway so there is exactly one conversion path in the contract.
+    let rates = rates::current(env, config.tokens.len());
+    let rate_in = rate_at(&rates, in_idx);
+    let rate_out = rate_at(&rates, out_idx);
+    let mut remaining = internal(net_native, scale_in, rate_in)?;
     let mut out_int: i128 = 0;
 
     let (mut cos_c, mut sin_c) = storage::get_price(env);
@@ -157,14 +163,14 @@ fn tick_swap(
         }
     }
 
-    let out_native = out_int / scale_out;
+    let out_native = to_native(out_int, scale_out, rate_out, Rounding::Down)?;
     if out_native <= 0 {
         return Err(OrbswapError::InsufficientLiquidity);
     }
     // Accrue the LP fee as growth-per-unit-liquidity on the input token, attributed
     // to the liquidity active at swap start (exact for single-segment swaps).
     if l_start > 0 && lp_fee > 0 {
-        let lp_fee_int = internal(lp_fee, scale_in)?;
+        let lp_fee_int = internal(lp_fee, scale_in, rate_in)?;
         let mut fg = storage::get_fee_growth_global(env);
         if fg.len() < 2 {
             fg = Vec::from_array(env, [0i128, 0i128]);
@@ -314,6 +320,8 @@ impl OrbswapPool {
         if storage::get_paused(&env).deposits {
             return Err(OrbswapError::Paused);
         }
+        rates::require_tradeable(&env)?;
+        require_lp_allowed(&env, &from)?;
         // Tick pools use `add_liquidity`/`remove_liquidity` (concentrated positions),
         // not the fungible-share path.
         if storage::get_tick_mode(&env) {
@@ -341,13 +349,25 @@ impl OrbswapPool {
         let mut reserves = storage::get_reserves(&env);
         let s = storage::get_s(&env);
         let total_shares = storage::get_total_shares(&env);
+        // Rate-aware pools price each leg into a common value space, so "balanced"
+        // below means equal **value**, not equal units. In parity mode every rate
+        // is WAD and this reduces to the original decimal-only behavior.
+        let rates = rates::current(&env, n);
 
         let minted;
         if total_shares == 0 {
             // First deposit: all internal amounts must be equal (balanced start).
-            let v = internal(amounts.get_unchecked(0), config.scales.get_unchecked(0))?;
+            let v = internal(
+                amounts.get_unchecked(0),
+                config.scales.get_unchecked(0),
+                rate_at(&rates, 0),
+            )?;
             for i in 1..n {
-                let vi = internal(amounts.get_unchecked(i), config.scales.get_unchecked(i))?;
+                let vi = internal(
+                    amounts.get_unchecked(i),
+                    config.scales.get_unchecked(i),
+                    rate_at(&rates, i),
+                )?;
                 if vi != v {
                     return Err(OrbswapError::ImbalancedDeposit);
                 }
@@ -366,16 +386,32 @@ impl OrbswapPool {
             reserves = amounts.clone();
         } else {
             // Proportional deposit: amountsᵢ/reservesᵢ must be equal across tokens.
-            let d0 = internal(amounts.get_unchecked(0), config.scales.get_unchecked(0))?;
-            let r0 = internal(reserves.get_unchecked(0), config.scales.get_unchecked(0))?;
+            let d0 = internal(
+                amounts.get_unchecked(0),
+                config.scales.get_unchecked(0),
+                rate_at(&rates, 0),
+            )?;
+            let r0 = internal(
+                reserves.get_unchecked(0),
+                config.scales.get_unchecked(0),
+                rate_at(&rates, 0),
+            )?;
             if r0 == 0 {
                 return Err(OrbswapError::MathDomain);
             }
             // Δs = s · (d0 / r0)
             let delta_s = md(s, d0, r0, Rounding::Down)?;
             for i in 1..n {
-                let di = internal(amounts.get_unchecked(i), config.scales.get_unchecked(i))?;
-                let ri = internal(reserves.get_unchecked(i), config.scales.get_unchecked(i))?;
+                let di = internal(
+                    amounts.get_unchecked(i),
+                    config.scales.get_unchecked(i),
+                    rate_at(&rates, i),
+                )?;
+                let ri = internal(
+                    reserves.get_unchecked(i),
+                    config.scales.get_unchecked(i),
+                    rate_at(&rates, i),
+                )?;
                 let expected = md(ri, d0, r0, Rounding::Down)?;
                 // Within a small tolerance of proportional.
                 if (di - expected).abs() > expected / 1_000_000 + 2 {
@@ -454,6 +490,8 @@ impl OrbswapPool {
         if storage::get_paused(&env).deposits {
             return Err(OrbswapError::Paused);
         }
+        rates::require_tradeable(&env)?;
+        require_lp_allowed(&env, &from)?;
         if !storage::get_tick_mode(&env) {
             return Err(OrbswapError::TickModeOnly);
         }
@@ -472,8 +510,9 @@ impl OrbswapPool {
 
         let scale_x = config.scales.get_unchecked(0);
         let scale_y = config.scales.get_unchecked(1);
-        let x_int = internal(x_max, scale_x)?;
-        let y_int = internal(y_max, scale_y)?;
+        let rates = rates::current(&env, config.tokens.len());
+        let x_int = internal(x_max, scale_x, rate_at(&rates, 0))?;
+        let y_int = internal(y_max, scale_y, rate_at(&rates, 1))?;
 
         // First add establishes the price: require full-range balanced → θc = 45°.
         let first = storage::get_tick_bitmap(&env) == 0;
@@ -748,6 +787,7 @@ impl OrbswapPool {
         if storage::get_paused(&env).swaps {
             return Err(OrbswapError::Paused);
         }
+        rates::require_tradeable(&env)?;
         if amount_in <= 0 {
             return Err(OrbswapError::InvalidAmount);
         }
@@ -783,13 +823,23 @@ impl OrbswapPool {
         }
         let mut reserves = storage::get_reserves(&env);
 
+        let rates = rates::current(&env, config.tokens.len());
+
         // Oracle: accumulate the price that held over the elapsed time BEFORE the
         // swap moves reserves (v2-style, using pre-swap reserves).
-        update_oracle(&env, &config, &reserves, s);
+        update_oracle(&env, &config, &reserves, &rates, s);
 
         let protocol_bps = storage::get_protocol_fee_bps(&env);
-        let (out_native, new_in, new_out, lp_fee, protocol_fee) =
-            compute_swap(&config, &reserves, s, i_in, i_out, amount_in, protocol_bps)?;
+        let (out_native, new_in, new_out, lp_fee, protocol_fee) = compute_swap(
+            &config,
+            &reserves,
+            &rates,
+            s,
+            i_in,
+            i_out,
+            amount_in,
+            protocol_bps,
+        )?;
         if out_native <= 0 {
             return Err(OrbswapError::InsufficientLiquidity);
         }
@@ -829,6 +879,7 @@ impl OrbswapPool {
         if storage::get_paused(&env).swaps {
             return Err(OrbswapError::Paused);
         }
+        rates::require_tradeable(&env)?;
         if amount_out <= 0 || token_in == token_out {
             return Err(OrbswapError::InvalidAmount);
         }
@@ -843,11 +894,20 @@ impl OrbswapPool {
             return Err(OrbswapError::InsufficientLiquidity);
         }
         let mut reserves = storage::get_reserves(&env);
-        update_oracle(&env, &config, &reserves, s);
+        let rates = rates::current(&env, config.tokens.len());
+        update_oracle(&env, &config, &reserves, &rates, s);
 
         let protocol_bps = storage::get_protocol_fee_bps(&env);
-        let (amount_in, new_in, new_out, lp_fee, protocol_fee) =
-            compute_swap_exact_out(&config, &reserves, s, i_in, i_out, amount_out, protocol_bps)?;
+        let (amount_in, new_in, new_out, lp_fee, protocol_fee) = compute_swap_exact_out(
+            &config,
+            &reserves,
+            &rates,
+            s,
+            i_in,
+            i_out,
+            amount_out,
+            protocol_bps,
+        )?;
         if amount_in <= 0 {
             return Err(OrbswapError::InsufficientLiquidity);
         }
@@ -883,7 +943,17 @@ impl OrbswapPool {
         }
         let reserves = storage::get_reserves(&env);
         let protocol_bps = storage::get_protocol_fee_bps(&env);
-        let (out, ..) = compute_swap(&config, &reserves, s, i_in, i_out, amount_in, protocol_bps)?;
+        let rates = rates::current(&env, config.tokens.len());
+        let (out, ..) = compute_swap(
+            &config,
+            &reserves,
+            &rates,
+            s,
+            i_in,
+            i_out,
+            amount_in,
+            protocol_bps,
+        )?;
         Ok(out)
     }
 
@@ -903,8 +973,16 @@ impl OrbswapPool {
         }
         let reserves = storage::get_reserves(&env);
         let protocol_bps = storage::get_protocol_fee_bps(&env);
-        let (amount_in, ..) =
-            compute_swap_exact_out(&config, &reserves, s, i_in, i_out, amount_out, protocol_bps)?;
+        let (amount_in, ..) = compute_swap_exact_out(
+            &config,
+            &reserves,
+            &rates::current(&env, config.tokens.len()),
+            s,
+            i_in,
+            i_out,
+            amount_out,
+            protocol_bps,
+        )?;
         Ok(amount_in)
     }
 
@@ -920,6 +998,16 @@ impl OrbswapPool {
     }
     pub fn total_shares(env: Env) -> i128 {
         storage::get_total_shares(&env)
+    }
+    /// The liquidity scale `s` (WAD) — the normalization constant the curve math
+    /// runs in.
+    ///
+    /// Equal to [`Self::total_shares`] for a parity pool, but **not** after a
+    /// [`Self::re_anchor`]: repegging moves `s` alone, so share value marks to
+    /// market while LP claims stay fixed. Exposed because a keeper watching a
+    /// rate-aware pool needs to see them diverge.
+    pub fn liquidity_scale(env: Env) -> i128 {
+        storage::get_s(&env)
     }
     pub fn shares_of(env: Env, who: Address) -> i128 {
         storage::get_shares(&env, &who)
@@ -937,7 +1025,8 @@ impl OrbswapPool {
         };
         let reserves = storage::get_reserves(&env);
         let s = storage::get_s(&env);
-        current_spot(&config, &reserves, s).unwrap_or(i128::MAX)
+        let rates = rates::current(&env, config.tokens.len());
+        current_spot(&config, &reserves, &rates, s).unwrap_or(i128::MAX)
     }
 
     /// Oracle accumulator `(Σ price·Δt, last_update_time)`. TWAP over `[t0,t1]` =
@@ -1069,6 +1158,301 @@ impl OrbswapPool {
         Ok(storage::get_allowed(&env).get_unchecked(i as u32))
     }
 
+    // -------- Rate-aware pools (todo.md §Phase 2) --------
+
+    /// Point this pool at a SEP-40 feed so its balanced point tracks an FX rate
+    /// instead of sitting at 1:1. Admin-only, one-shot, and **pre-liquidity**.
+    ///
+    /// Requiring an empty pool is deliberate: converting a live parity pool would
+    /// instantly revalue one leg and hand the difference to the first trader
+    /// (todo.md §0). Deploy a rate-aware pool empty, configure, then seed.
+    ///
+    /// `Circular` pools are rejected — their tick space hardcodes 45° as the peg,
+    /// so non-parity ticks are a separate problem (todo.md §11.2).
+    pub fn configure_rates(
+        env: Env,
+        feed: Address,
+        quote_index: u32,
+        numeraire_index: u32,
+        cross: bool,
+        max_age_secs: u64,
+        max_deviation_bps: i128,
+    ) -> Result<(), OrbswapError> {
+        require_admin(&env)?;
+        let config = storage::get_config(&env)?;
+        if storage::has_rate_config(&env) {
+            return Err(OrbswapError::AlreadyInitialized);
+        }
+        if config.mode != PoolMode::SuperElliptical {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+        if storage::get_total_shares(&env) != 0 {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+        let n = config.tokens.len();
+        if quote_index >= n || numeraire_index >= n || quote_index == numeraire_index {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+        if max_age_secs == 0 || max_deviation_bps <= 0 {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+
+        let feed_decimals = rates::PriceFeedClient::new(&env, &feed).decimals();
+        if feed_decimals > 18 {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+
+        let cfg = RateConfig {
+            feed: feed.clone(),
+            quote_index,
+            numeraire_index,
+            cross,
+            max_age_secs,
+            max_deviation_bps,
+            feed_decimals,
+        };
+        // Seed the cache from the feed so the pool never opens with a zero rate.
+        let (rate, ts) = rates::fetch_rate(&env, &cfg, &config.tokens)?;
+        let mut vals = Vec::new(&env);
+        for i in 0..n {
+            vals.push_back(if i == quote_index { rate } else { WAD });
+        }
+        storage::set_rate_config(&env, &cfg);
+        storage::set_rates(&env, &vals, ts.max(env.ledger().timestamp()));
+        storage::bump_instance(&env);
+        events::rate_configured(&env, &feed, quote_index, max_age_secs, max_deviation_bps);
+        Ok(())
+    }
+
+    /// Refresh the cached rate from the feed. **Permissionless**: anyone may push
+    /// a fresh price, but only within `max_deviation_bps`, and this can only ever
+    /// *trip* the breaker — never clear it.
+    ///
+    /// Returns the rate in force **after** the call.
+    ///
+    /// # Why a deviation is not an `Err`
+    /// Soroban rolls back every storage write when a call returns `Err`, so
+    /// erroring on an out-of-bound move would discard the very breaker flag it was
+    /// meant to set — leaving the pool open at a stale rate. A deviation is
+    /// therefore a *successful* poke that latches the breaker, leaves the cached
+    /// rate untouched, emits [`events::rate_breaker_changed`], and returns the old
+    /// rate. Callers detect it via [`Self::rate_status`] or the event.
+    ///
+    /// This is the Feb 2026 YieldBlox failure mode: a feed reporting a manipulated
+    /// price accurately. The pool halts rather than repricing.
+    pub fn poke_rate(env: Env) -> Result<i128, OrbswapError> {
+        let config = storage::get_config(&env)?;
+        let cfg = storage::get_rate_config(&env).ok_or(OrbswapError::InvalidRateConfig)?;
+        if storage::get_rate_breaker(&env) {
+            return Err(OrbswapError::RateBreakerTripped);
+        }
+
+        let (new_rate, ts) = rates::fetch_rate(&env, &cfg, &config.tokens)?;
+        let n = config.tokens.len();
+        let mut vals = rates::current(&env, n);
+        let old_rate = rate_at(&vals, cfg.quote_index);
+
+        let dev = rates::deviation_bps(old_rate, new_rate)?;
+        if dev > cfg.max_deviation_bps {
+            // Must NOT return Err — that would roll this write back. See the note
+            // on this function.
+            storage::set_rate_breaker(&env, true);
+            storage::bump_instance(&env);
+            events::rate_breaker_changed(&env, true, symbol_short!("deviation"));
+            return Ok(old_rate);
+        }
+
+        vals.set(cfg.quote_index, new_rate);
+        storage::set_rates(&env, &vals, ts.max(env.ledger().timestamp()));
+        if new_rate != old_rate {
+            // The revaluation just moved the pool off its curve. Close it until
+            // `re_anchor` lands — an open off-curve pool is a free pot (§0).
+            storage::set_needs_reanchor(&env, true);
+        }
+        storage::bump_instance(&env);
+        let token = config.tokens.get_unchecked(cfg.quote_index);
+        events::rate_updated(&env, &token, old_rate, new_rate, ts);
+        Ok(new_rate)
+    }
+
+    /// Cached rate for `token`, WAD. Always `WAD` in parity mode.
+    pub fn get_rate(env: Env, token: Address) -> Result<i128, OrbswapError> {
+        let config = storage::get_config(&env)?;
+        let i = token_index(&config, &token)?;
+        Ok(rate_at(
+            &rates::current(&env, config.tokens.len()),
+            i as u32,
+        ))
+    }
+
+    /// `(rate, last_update_time, fresh, breaker_tripped)` for the quote leg.
+    /// Monitoring hook for the keeper and the frontend banner.
+    pub fn rate_status(env: Env) -> Result<(i128, u64, bool, bool), OrbswapError> {
+        let config = storage::get_config(&env)?;
+        let breaker = storage::get_rate_breaker(&env);
+        let last = storage::get_rate_last_time(&env);
+        match storage::get_rate_config(&env) {
+            None => Ok((WAD, last, true, breaker)),
+            Some(cfg) => {
+                let rate = rate_at(&rates::current(&env, config.tokens.len()), cfg.quote_index);
+                let fresh = rates::is_fresh(&env, &cfg, env.ledger().timestamp());
+                Ok((rate, last, fresh, breaker))
+            }
+        }
+    }
+
+    /// Move the pool onto the curve implied by the **current** rates, by
+    /// recomputing the liquidity scale `s`.
+    ///
+    /// # Why this exists
+    /// A rate update revalues one leg, leaving the state off the invariant. Per
+    /// todo.md §0 an open off-curve pool pays its entire revaluation to whoever
+    /// trades first — at any trade size, dust included. So `poke_rate` closes the
+    /// pool (`OffCurve`) and this reopens it at the correct position. The intended
+    /// sequence is atomic in effect:
+    ///
+    /// ```text
+    /// rate moves → pool CLOSED → re_anchor() → pool OPEN at the new curve
+    /// ```
+    ///
+    /// # What it does to LP shares
+    /// `s` moves; `total_shares` does **not**. That deliberately breaks the
+    /// `total_shares == s` convention held by deposit/withdraw, and it is the
+    /// correct accounting: each LP still owns `shares_of(who) / total_shares` of
+    /// the pool, but the pool itself is now worth a different amount. Share value
+    /// marks to market, which is what an FX move actually means for an LP.
+    ///
+    /// Returns the new `s`. A pool with no liquidity is a no-op.
+    pub fn re_anchor(env: Env, deadline: u64) -> Result<i128, OrbswapError> {
+        require_admin(&env)?;
+        check_deadline(&env, deadline)?;
+        let config = storage::get_config(&env)?;
+        let old_s = storage::get_s(&env);
+        if old_s == 0 {
+            storage::set_needs_reanchor(&env, false);
+            return Ok(0);
+        }
+        let reserves = storage::get_reserves(&env);
+        let rates = rates::current(&env, config.tokens.len());
+
+        let new_s = solve_scale(&config, &reserves, &rates)?;
+        storage::set_s(&env, new_s);
+        storage::set_needs_reanchor(&env, false);
+        storage::bump_instance(&env);
+
+        let rate = match storage::get_rate_config(&env) {
+            Some(cfg) => rate_at(&rates, cfg.quote_index),
+            None => WAD,
+        };
+        events::re_anchored(&env, old_s, new_s, rate);
+        Ok(new_s)
+    }
+
+    /// Whether the pool currently sits on its invariant (within the same
+    /// tolerance every swap is held to). Monitoring hook — costs several
+    /// transcendental evaluations, which is why the trading path uses the cached
+    /// `NeedsReAnchor` flag instead.
+    pub fn is_on_curve(env: Env) -> Result<bool, OrbswapError> {
+        let config = storage::get_config(&env)?;
+        let s = storage::get_s(&env);
+        if s == 0 {
+            return Ok(true);
+        }
+        let rates = rates::current(&env, config.tokens.len());
+        let r = residual_at(&config, &storage::get_reserves(&env), &rates, s)?;
+        Ok(r.unsigned_abs() <= INVARIANT_EPSILON as u128)
+    }
+
+    /// Signed invariant residual (WAD): `0` on the curve, negative inside it,
+    /// positive outside. Lets a keeper watch drift without guessing.
+    pub fn curve_drift(env: Env) -> Result<i128, OrbswapError> {
+        let config = storage::get_config(&env)?;
+        let s = storage::get_s(&env);
+        if s == 0 {
+            return Ok(0);
+        }
+        let rates = rates::current(&env, config.tokens.len());
+        residual_at(&config, &storage::get_reserves(&env), &rates, s)
+    }
+
+    /// Whether a `re_anchor` is pending, i.e. trading is currently closed.
+    pub fn needs_reanchor(env: Env) -> bool {
+        storage::get_needs_reanchor(&env)
+    }
+
+    // -------- Oracle safety (todo.md §Phase 4) --------
+
+    /// Latch or clear the oracle circuit breaker. Admin only.
+    ///
+    /// One call rather than a `trip`/`reset` pair, to keep the contract inside
+    /// Soroban's code-size limit (todo.md §7).
+    ///
+    /// # Staleness vs deviation
+    /// These are deliberately different severities:
+    ///
+    /// - **Staleness** is a *soft* close. `require_tradeable` refuses to trade
+    ///   while the cached rate is old, but a fresh `poke_rate` reopens the pool
+    ///   with no human in the loop — a congested feed should not need an admin.
+    /// - **Deviation** is a *hard* latch. An implausible move is evidence of
+    ///   manipulation, not lag, so only this call can clear it.
+    pub fn set_breaker(env: Env, tripped: bool) -> Result<(), OrbswapError> {
+        require_admin(&env)?;
+        storage::set_rate_breaker(&env, tripped);
+        storage::bump_instance(&env);
+        events::rate_breaker_changed(&env, tripped, symbol_short!("admin"));
+        Ok(())
+    }
+
+    /// Retune the staleness window and per-update deviation bound. Admin only.
+    pub fn set_rate_bounds(
+        env: Env,
+        max_age_secs: u64,
+        max_deviation_bps: i128,
+    ) -> Result<(), OrbswapError> {
+        require_admin(&env)?;
+        let mut cfg = storage::get_rate_config(&env).ok_or(OrbswapError::InvalidRateConfig)?;
+        if max_age_secs == 0 || max_deviation_bps <= 0 {
+            return Err(OrbswapError::InvalidRateConfig);
+        }
+        cfg.max_age_secs = max_age_secs;
+        cfg.max_deviation_bps = max_deviation_bps;
+        storage::set_rate_config(&env, &cfg);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    // -------- Operator mode (todo.md §Phase 5) --------
+
+    /// Restrict liquidity provision to an allowlist. Admin only.
+    ///
+    /// This is what makes the pool an **anchor's settlement rail** rather than a
+    /// public venue: one operator supplies the inventory, but anyone may trade
+    /// against it. Swaps are never gated, and neither are withdrawals — a revoked
+    /// operator must still be able to exit.
+    pub fn set_operator_mode(env: Env, enabled: bool) -> Result<(), OrbswapError> {
+        require_admin(&env)?;
+        storage::set_operator_mode(&env, enabled);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    /// Grant or revoke a single address's permission to provide liquidity.
+    pub fn set_operator(env: Env, who: Address, allowed: bool) -> Result<(), OrbswapError> {
+        require_admin(&env)?;
+        storage::set_operator(&env, &who, allowed);
+        storage::bump_instance(&env);
+        events::operator_changed(&env, &who, allowed);
+        Ok(())
+    }
+
+    /// `(operator_mode_enabled, this_address_is_allowed)`.
+    pub fn operator_status(env: Env, who: Address) -> (bool, bool) {
+        (
+            storage::get_operator_mode(&env),
+            storage::is_operator(&env, &who),
+        )
+    }
+
     // -------- LP share transfer --------
     /// Move `amount` LP shares from `from` to `to`.
     pub fn transfer_shares(
@@ -1116,6 +1500,15 @@ fn set_pause_flag(
 
 // ---------------------------------------------------------------- helpers
 
+/// Enforce the LP allowlist when operator mode is on. Applies to liquidity
+/// provision only — never to swaps, and never to withdrawals.
+fn require_lp_allowed(env: &Env, who: &Address) -> Result<(), OrbswapError> {
+    if storage::get_operator_mode(env) && !storage::is_operator(env, who) {
+        return Err(OrbswapError::NotOperator);
+    }
+    Ok(())
+}
+
 fn check_deadline(env: &Env, deadline: u64) -> Result<(), OrbswapError> {
     if env.ledger().timestamp() > deadline {
         return Err(OrbswapError::Expired);
@@ -1123,9 +1516,63 @@ fn check_deadline(env: &Env, deadline: u64) -> Result<(), OrbswapError> {
     Ok(())
 }
 
-/// `native · scale` — native units to internal 18-decimal WAD.
-fn internal(native: i128, scale: i128) -> Result<i128, OrbswapError> {
-    native.checked_mul(scale).ok_or(OrbswapError::Overflow)
+/// `native · scale · rate / WAD` — native units to the internal 18-decimal space
+/// the curve math operates on.
+///
+/// `scale` normalizes token decimals; `rate` (WAD) prices the token against the
+/// pool's numeraire, so a **rate-aware** pool's balanced point sits at the oracle
+/// FX rate instead of at 1:1. In parity mode every rate is exactly `WAD` and
+/// `mul_div(x, WAD, WAD) == x`, so the result is bit-identical to plain decimal
+/// scaling — existing pools are unaffected.
+///
+/// Rounds **down**: this feeds reserves and trade inputs into the curve, and
+/// under-stating them favors the pool.
+fn internal(native: i128, scale: i128, rate: i128) -> Result<i128, OrbswapError> {
+    let scaled = native.checked_mul(scale).ok_or(OrbswapError::Overflow)?;
+    if rate == WAD {
+        return Ok(scaled); // exact fast path; also keeps parity pools allocation-free
+    }
+    md(scaled, rate, WAD, Rounding::Down)
+}
+
+/// Inverse of [`internal`]: internal 18-decimal WAD back to native token units.
+///
+/// Composed as two divisions — `internal·WAD/rate`, then `/scale`. For positive
+/// integers `floor(floor(a/b)/c) == floor(a/(b·c))` and the same identity holds
+/// for `ceil`, so the two-step form is exact for both rounding directions.
+///
+/// Callers pick the direction explicitly: `Down` for amounts leaving the pool,
+/// `Up` for amounts the user must supply.
+fn to_native(
+    internal_amt: i128,
+    scale: i128,
+    rate: i128,
+    rounding: Rounding,
+) -> Result<i128, OrbswapError> {
+    if scale <= 0 || rate <= 0 {
+        return Err(OrbswapError::InvalidRateConfig);
+    }
+    let unpriced = if rate == WAD {
+        internal_amt
+    } else {
+        md(internal_amt, WAD, rate, rounding)?
+    };
+    Ok(match rounding {
+        Rounding::Down => unpriced / scale,
+        // `i128::div_ceil` is unstable on the pinned toolchain; both operands are
+        // non-negative here, so the classic form is exact.
+        Rounding::Up => {
+            unpriced
+                .checked_add(scale - 1)
+                .ok_or(OrbswapError::Overflow)?
+                / scale
+        }
+    })
+}
+
+/// The cached rate for token `i`, WAD. Always `WAD` in parity mode.
+fn rate_at(rates: &Vec<i128>, i: u32) -> i128 {
+    rates.try_get(i).ok().flatten().unwrap_or(WAD)
 }
 
 fn pow10(n: u32) -> i128 {
@@ -1138,13 +1585,23 @@ fn pow10(n: u32) -> i128 {
 
 /// Marginal price of token0 in token1 at the current reserves (WAD), or `None` at
 /// a boundary / empty pool. Decimal-normalized (uses internal reserves).
-fn current_spot(config: &Config, reserves: &Vec<i128>, s: i128) -> Option<i128> {
+fn current_spot(config: &Config, reserves: &Vec<i128>, rates: &Vec<i128>, s: i128) -> Option<i128> {
     // Oracle tracks the token0/token1 pair; only meaningful for 2-token pools.
     if s == 0 || config.tokens.len() != 2 {
         return None;
     }
-    let i0 = internal(reserves.get_unchecked(0), config.scales.get_unchecked(0)).ok()?;
-    let i1 = internal(reserves.get_unchecked(1), config.scales.get_unchecked(1)).ok()?;
+    let i0 = internal(
+        reserves.get_unchecked(0),
+        config.scales.get_unchecked(0),
+        rate_at(rates, 0),
+    )
+    .ok()?;
+    let i1 = internal(
+        reserves.get_unchecked(1),
+        config.scales.get_unchecked(1),
+        rate_at(rates, 1),
+    )
+    .ok()?;
     let x0 = mul_div(i0, WAD, s, Rounding::Down).ok()?;
     let x1 = mul_div(i1, WAD, s, Rounding::Down).ok()?;
     let p = match config.mode {
@@ -1159,14 +1616,14 @@ fn current_spot(config: &Config, reserves: &Vec<i128>, s: i128) -> Option<i128> 
 }
 
 /// Accumulate `price · elapsed` since the last update using the (pre-swap) reserves.
-fn update_oracle(env: &Env, config: &Config, reserves: &Vec<i128>, s: i128) {
+fn update_oracle(env: &Env, config: &Config, reserves: &Vec<i128>, rates: &Vec<i128>, s: i128) {
     let now = env.ledger().timestamp();
     let (cum, last) = storage::get_oracle(env);
     if now <= last {
         return;
     }
     let elapsed = (now - last) as i128;
-    let new_cum = match current_spot(config, reserves, s) {
+    let new_cum = match current_spot(config, reserves, rates, s) {
         Some(spot) => oracle::accumulate(cum, spot, elapsed).unwrap_or(cum),
         None => cum,
     };
@@ -1207,9 +1664,11 @@ fn accrue_fees(env: &Env, i_in: usize, lp_fee: i128, protocol_fee: i128) {
 /// (`reserve_in += net`, `reserve_out -= out`), so the pool stays exactly on the
 /// invariant and every swap prices per the paper. The LP and protocol fee cuts are
 /// returned to the caller to accrue in `LpFeesOwed` / `ProtocolOwed`.
+#[allow(clippy::too_many_arguments)]
 fn compute_swap(
     config: &Config,
     reserves: &Vec<i128>,
+    rates: &Vec<i128>,
     s: i128,
     i_in: usize,
     i_out: usize,
@@ -1218,6 +1677,8 @@ fn compute_swap(
 ) -> Result<(i128, i128, i128, i128, i128), OrbswapError> {
     let scale_in = config.scales.get_unchecked(i_in as u32);
     let scale_out = config.scales.get_unchecked(i_out as u32);
+    let rate_in = rate_at(rates, i_in as u32);
+    let rate_out = rate_at(rates, i_out as u32);
     let res_in_n = reserves.get_unchecked(i_in as u32);
     let res_out_n = reserves.get_unchecked(i_out as u32);
 
@@ -1232,9 +1693,9 @@ fn compute_swap(
         fees::split_protocol_fee(fee_native, protocol_bps).map_err(|_| OrbswapError::Overflow)?;
 
     // native → internal (18-dec). Curve moves by NET only (stays on-invariant).
-    let internal_in_amt = internal(net_native, scale_in)?;
-    let res_in_int = internal(res_in_n, scale_in)?;
-    let res_out_int = internal(res_out_n, scale_out)?;
+    let internal_in_amt = internal(net_native, scale_in, rate_in)?;
+    let res_in_int = internal(res_in_n, scale_in, rate_in)?;
+    let res_out_int = internal(res_out_n, scale_out, rate_out)?;
 
     // internal → normalized (÷s).
     let xin = md(res_in_int, WAD, s, Rounding::Down)?;
@@ -1266,7 +1727,7 @@ fn compute_swap(
         if dxhat < MIN_TRADE_NORMALIZED {
             return Err(OrbswapError::BelowMinTrade);
         }
-        let (xhat, params) = normalized_all(config, reserves, s)?;
+        let (xhat, params) = normalized_all(config, reserves, rates, s)?;
         let r = ndim::swap_out_n(&xhat[..n], &params[..n], i_in, i_out, dxhat)?;
         // Post-swap invariant over all n dimensions.
         let mut post = xhat;
@@ -1281,7 +1742,7 @@ fn compute_swap(
     // normalized → internal → native (round down, favors pool).
     let _ = (nx_in, nx_out); // used above only for the invariant guard
     let out_int = md(out_norm, s, WAD, Rounding::Down)?;
-    let out_native = out_int / scale_out;
+    let out_native = to_native(out_int, scale_out, rate_out, Rounding::Down)?;
     if out_native > res_out_n {
         return Err(OrbswapError::InsufficientLiquidity);
     }
@@ -1323,6 +1784,7 @@ fn balanced_xhat(config: &Config, n: usize) -> Result<i128, OrbswapError> {
 fn normalized_all(
     config: &Config,
     reserves: &Vec<i128>,
+    rates: &Vec<i128>,
     s: i128,
 ) -> Result<([i128; MAX_TOKENS], [i128; MAX_TOKENS]), OrbswapError> {
     let n = config.tokens.len() as usize;
@@ -1332,6 +1794,7 @@ fn normalized_all(
         let ii = internal(
             reserves.get_unchecked(i as u32),
             config.scales.get_unchecked(i as u32),
+            rate_at(rates, i as u32),
         )?;
         xhat[i] = md(ii, WAD, s, Rounding::Down)?;
         params[i] = config.alpha; // symmetric n-token pool
@@ -1339,14 +1802,157 @@ fn normalized_all(
     Ok((xhat, params))
 }
 
+/// Reserves in normalized curve space plus the per-axis shape parameters.
+///
+/// Unlike [`normalized_all`] (n-token, symmetric) this respects `beta` on the
+/// 2-token axis, so it is correct for asymmetric `SuperElliptical` pools.
+fn curve_state(
+    config: &Config,
+    reserves: &Vec<i128>,
+    rates: &Vec<i128>,
+    s: i128,
+) -> Result<([i128; MAX_TOKENS], [i128; MAX_TOKENS], usize), OrbswapError> {
+    if s <= 0 {
+        return Err(OrbswapError::InsufficientLiquidity);
+    }
+    let n = config.tokens.len() as usize;
+    let mut xhat = [0i128; MAX_TOKENS];
+    let mut params = [0i128; MAX_TOKENS];
+    for i in 0..n {
+        let ii = internal(
+            reserves.get_unchecked(i as u32),
+            config.scales.get_unchecked(i as u32),
+            rate_at(rates, i as u32),
+        )?;
+        xhat[i] = md(ii, WAD, s, Rounding::Down)?;
+        params[i] = if n == 2 && i == 1 {
+            config.beta
+        } else {
+            config.alpha
+        };
+    }
+    Ok((xhat, params, n))
+}
+
+/// Signed invariant residual at liquidity scale `s` (WAD): `0` on the curve,
+/// negative inside it, positive outside.
+fn residual_at(
+    config: &Config,
+    reserves: &Vec<i128>,
+    rates: &Vec<i128>,
+    s: i128,
+) -> Result<i128, OrbswapError> {
+    let (xhat, params, n) = curve_state(config, reserves, rates, s)?;
+    ndim::invariant_residual_n(&xhat[..n], &params[..n]).map_err(OrbswapError::from)
+}
+
+/// Smallest `s` that keeps every normalized reserve on the arc (`x̂ᵢ ≤ αᵢ`).
+///
+/// The residual is only monotonic in `s` while the state is on-arc, so this is the
+/// lower bracket the solver must not cross.
+fn min_scale_on_arc(
+    config: &Config,
+    reserves: &Vec<i128>,
+    rates: &Vec<i128>,
+) -> Result<i128, OrbswapError> {
+    let n = config.tokens.len() as usize;
+    let mut lo: i128 = 0;
+    for i in 0..n {
+        let ii = internal(
+            reserves.get_unchecked(i as u32),
+            config.scales.get_unchecked(i as u32),
+            rate_at(rates, i as u32),
+        )?;
+        let param = if n == 2 && i == 1 {
+            config.beta
+        } else {
+            config.alpha
+        };
+        // x̂ = ii·WAD/s ≤ α  ⇒  s ≥ ii·WAD/α. Round up so the bound is inclusive.
+        let need = md(ii, WAD, param, Rounding::Up)?;
+        if need > lo {
+            lo = need;
+        }
+    }
+    Ok(lo)
+}
+
+/// Maximum solver iterations. Bisection halves the bracket each step, so this is
+/// far more than needed for `i128`; it exists purely to bound CPU.
+const SOLVE_ITERS: u32 = 128;
+
+/// Solve for the liquidity scale `s` that puts the current `(reserves, rates)`
+/// exactly on the invariant.
+///
+/// The residual is strictly increasing in `s` on the arc (see
+/// [`ndim::invariant_residual_n`]), so a bracket plus bisection converges to the
+/// unique root. There is no closed form for a general reserve vector — only the
+/// balanced case has one — which is why this is iterative.
+///
+/// Returns [`OrbswapError::OffCurve`] when the reserve vector cannot sit on the
+/// curve at any on-arc `s` (too imbalanced to represent).
+fn solve_scale(
+    config: &Config,
+    reserves: &Vec<i128>,
+    rates: &Vec<i128>,
+) -> Result<i128, OrbswapError> {
+    let mut lo = min_scale_on_arc(config, reserves, rates)?;
+    if lo <= 0 {
+        return Err(OrbswapError::InsufficientLiquidity);
+    }
+    // At the lower bracket the state must sit inside the curve (residual ≤ 0).
+    if residual_at(config, reserves, rates, lo)? > 0 {
+        return Err(OrbswapError::OffCurve);
+    }
+    // Grow the upper bracket until the residual turns positive. It tends to
+    // (n−1)·WAD as s → ∞, so this always terminates for a valid pool.
+    let mut hi = lo;
+    let mut bracketed = false;
+    for _ in 0..SOLVE_ITERS {
+        hi = hi.checked_mul(2).ok_or(OrbswapError::Overflow)?;
+        if residual_at(config, reserves, rates, hi)? > 0 {
+            bracketed = true;
+            break;
+        }
+    }
+    if !bracketed {
+        return Err(OrbswapError::OffCurve);
+    }
+    // Bisect. Early-exit as soon as the residual is inside the contract's own
+    // tolerance, which is the same bar every swap is held to.
+    for _ in 0..SOLVE_ITERS {
+        if hi - lo <= 1 {
+            break;
+        }
+        let mid = lo + (hi - lo) / 2;
+        let r = residual_at(config, reserves, rates, mid)?;
+        if r.unsigned_abs() <= INVARIANT_EPSILON as u128 {
+            return Ok(mid);
+        }
+        if r < 0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    // Prefer the low side: residual ≤ 0 means the pool holds at least what the
+    // curve requires, never less.
+    if residual_at(config, reserves, rates, lo)?.unsigned_abs() > INVARIANT_EPSILON as u128 {
+        return Err(OrbswapError::InvariantViolation);
+    }
+    Ok(lo)
+}
+
 /// Exact-output swap math. Given the desired `amount_out_native`, compute the
 /// gross input required (fee-inclusive), rounding **up** at every step so the
 /// pool is favored (the user pays at least enough). Returns
 /// `(amount_in_native, new_reserve_in_native, new_reserve_out_native, lp_fee,
 /// protocol_fee)`. Fees are held OUTSIDE the curve (reserve moves by NET only).
+#[allow(clippy::too_many_arguments)]
 fn compute_swap_exact_out(
     config: &Config,
     reserves: &Vec<i128>,
+    rates: &Vec<i128>,
     s: i128,
     i_in: usize,
     i_out: usize,
@@ -1367,9 +1973,11 @@ fn compute_swap_exact_out(
     }
 
     // out native → internal → normalized (round UP → require more input, pool-favoring).
-    let out_internal = internal(amount_out_native, scale_out)?;
-    let res_in_int = internal(res_in_n, scale_in)?;
-    let res_out_int = internal(res_out_n, scale_out)?;
+    let rate_in = rate_at(rates, i_in as u32);
+    let rate_out = rate_at(rates, i_out as u32);
+    let out_internal = internal(amount_out_native, scale_out, rate_out)?;
+    let res_in_int = internal(res_in_n, scale_in, rate_in)?;
+    let res_out_int = internal(res_out_n, scale_out, rate_out)?;
     let xin = md(res_in_int, WAD, s, Rounding::Down)?;
     let xout = md(res_out_int, WAD, s, Rounding::Down)?;
     let out_norm = md(out_internal, WAD, s, Rounding::Up)?;
@@ -1395,7 +2003,7 @@ fn compute_swap_exact_out(
 
     // net_norm → internal → native (round UP).
     let net_internal = md(in_norm, s, WAD, Rounding::Up)?;
-    let net_native = ceil_div(net_internal, scale_in)?;
+    let net_native = to_native(net_internal, scale_in, rate_in, Rounding::Up)?;
     // Invert the fee: smallest gross whose post-fee net ≥ net_native.
     let gross = gross_from_net(net_native, config.fee_bps)?;
     let fee_native = gross - net_native.min(gross);

@@ -1007,6 +1007,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbswap-feed-stub"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "orbswap-math"
 version = "0.1.0"
 
